@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Probability_of_occurrence.gpkg を地図に重ねて可視化</title>
+
   <!-- Leaflet -->
   <link
     rel="stylesheet"
@@ -17,7 +18,7 @@
     crossorigin=""
   ></script>
 
-  <!-- GeoPackage core library（ブラウザでGPKGを読むために必要）-->
+  <!-- GeoPackage（ブラウザでGPKGを読むために必要）-->
   <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
   <!-- Leaflet用のGeoPackageプラグイン（URLから直接レイヤーを読み込む）-->
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
@@ -25,29 +26,69 @@
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
-    .leaflet-control-layers-expanded { max-height: 300px; overflow:auto; }
-    .credits { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.9); padding: 6px 8px; border-radius: 8px; font: 12px/1.2 system-ui, sans-serif; }
-
-    /* ====== 追加：ポップアップと画像を大きくするための調整 ====== */
-    /* 大きめのポップアップ用クラス */
-    .wf-popup .leaflet-popup-content {
-      max-width: calc(100vw - 96px);
-       max-height: calc(100vh - 128px);
-      overflow: auto;            /* はみ出す場合はスクロール可 */
-      margin: 8px 10px;         /* 既定より少しコンパクトに */
+    .leaflet-control-layers-expanded { max-height: 300px; overflow: auto; }
+    .credits {
+      position: absolute; bottom: 12px; left: 12px;
+      background: rgba(255,255,255,.9); padding: 6px 8px;
+      border-radius: 8px; font: 12px/1.2 system-ui, sans-serif;
     }
+
+    /* ===== ポップアップの見た目調整（20vw × 20vhに固定、スクロール禁止） ===== */
     .wf-popup .leaflet-popup-content-wrapper {
       border-radius: 12px;
     }
-    /* ポップアップ内の画像：画面に合わせて拡大・縮小 */
-    .wf-img {
-      display: block;
-      width: auto;
-      height: auto;
-      max-width: calc(100vw - 120px);
-      max-height: calc(100vh - 160px);
+    .wf-popup .leaflet-popup-content {
+      box-sizing: border-box;
+      width: 20vw;   /* ウィンドウ幅の0.2倍 */
+      height: 20vh;  /* ウィンドウ高の0.2倍 */
+      margin: 8px 10px;
+      overflow: hidden; /* スクロールさせない */
     }
-    .wf-pop a { text-decoration: underline; }
+    @supports (height: 100dvh) {
+      .wf-popup .leaflet-popup-content { height: 20dvh; }
+    }
+
+    /* ポップアップの内部レイアウト */
+    .wf-pop {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column; gap: 6px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+    }
+    .wf-prob {
+      font-size: 14px; line-height: 1.2;
+      font-weight: 600;
+    }
+    .wf-img-wrap {
+      flex: 1 1 auto;
+      min-height: 0; /* flex子のオーバーフロー抑止 */
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(0,0,0,.08); border-radius: 8px;
+      background: #fff;
+    }
+    .wf-img {
+      width: 100%; height: 100%;
+      object-fit: contain; /* 余白を残して確実に収める */
+      display: block;
+    }
+    .wf-link {
+      margin-top: 2px;
+      font-size: 14px; font-weight: 700;
+    }
+    .wf-link a {
+      text-decoration: underline;
+    }
+
+    /* ✖ボタンを大きく分かりやすく */
+    .wf-popup .leaflet-popup-close-button {
+      width: 28px; height: 28px;
+      line-height: 28px; font-size: 18px; font-weight: 800;
+      color: #fff; background: rgba(0,0,0,.65);
+      border-radius: 999px;
+      top: 6px; right: 6px;
+    }
+    .wf-popup .leaflet-popup-close-button:hover {
+      background: rgba(0,0,0,.8);
+    }
   </style>
 </head>
 <body>
@@ -56,11 +97,10 @@
 
   <script>
     (async function () {
-      // ===== 基本設定 =====
-      const gpkgUrl = 'data/Probability_of_occurrence.gpkg'; // リポジトリの相対パス
+      // ===== 設定 =====
+      const gpkgUrl = 'data/Probability_of_occurrence.gpkg';
 
-      // GeoPackageライブラリに、WASM(sql-wasm.wasm)の取得先CDNを明示
-      // GeoPackage のグローバルから、バージョン差異に対応（GeoPackageManager か GeoPackageAPI）
+      // GeoPackage の初期化（バージョン差とWASMの場所に対応）
       const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
       const GPM = GeoPackageManager || GeoPackageAPI;
       if (!GPM || typeof GPM.open !== 'function') {
@@ -69,16 +109,14 @@
       }
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // ===== 地図初期化 =====
-      // 初期表示：滑川町（埼玉県）にズーム
-      // 参考座標（町役場付近）：36.066000, 139.360972
+      // 地図初期化（滑川町）
       const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
       const layersControl = L.control.layers({}, {}).addTo(map);
 
-      // ===== GPKG の中のフィーチャテーブル名を列挙 =====
+      // GPKG 読み込み
       const resp = await fetch(gpkgUrl);
       if (!resp.ok) throw new Error(`GPKGの取得に失敗しました: ${resp.status} ${resp.statusText}`);
       const arrayBuf = await resp.arrayBuffer();
@@ -86,94 +124,70 @@
       const featureTables = gpkg.getFeatureTables();
       if (!featureTables || featureTables.length === 0) throw new Error('このGeoPackageにフィーチャレイヤーが見つかりません');
 
-      // テーブルごとにLeafletレイヤーを構築
-      const addedLayers = [];
-      const globalBounds = L.latLngBounds([]);
+      // ===== ユーティリティ =====
+      const formatProbability = (v) => {
+        const n = Number(v);
+        if (!isFinite(n)) return '—';
+        if (n >= 0 && n <= 1) return (n * 100).toFixed(1) + '%';
+        if (n > 1 && n <= 100) return n.toFixed(1) + '%';
+        return String(v);
+      };
 
-      // === クリック時に ID を使って PNG を表示する ===
-      function buildPngPopupHtml(id, url) {
-        return `
-          <div class="wf-pop">
+      const buildPngPopupHtml = (probText, url, id) => `
+        <div class="wf-pop">
+          <div class="wf-prob">生息確率（<code>Probablity</code>）: <strong>${probText}</strong></div>
+          <div class="wf-img-wrap">
             <img class="wf-img" src="${url}" alt="waterfall_ID${id}_RF" />
-            <div style="margin-top:6px;">
-              <a target="_blank" href="${url}">新しいタブで開く</a>
-            </div>
-          </div>`;
-      }
+          </div>
+          <div class="wf-link"><a target="_blank" rel="noopener" href="${url}">新しいタブで開く</a></div>
+        </div>
+      `;
 
       async function handleWaterfallClick(feature, ev) {
         const props = (feature && feature.properties) || {};
         const id = props.ID ?? props.id ?? props.Id;
+        const probRaw = props.Probablity ?? props.Probability ?? props.probability ?? null;
+        const probText = formatProbability(probRaw);
 
-        // ★ ポップアップを大きめに：maxWidthを拡大し、クラスを付与
+        // ポップアップは20vw×20vhにCSSで固定するため、maxWidthは十分小さめに合わせる
         const popup = L.popup({
-          maxWidth: Math.min(window.innerWidth - 96, 900),
+          maxWidth: Math.max(160, Math.round(window.innerWidth * 0.2)), // 幅の上限：20vw相当
           className: 'wf-popup',
           autoPan: true,
-          // 余白を少し増やし、上下左右で個別指定（“ほんの少し”のはみ出しを避ける）
-          autoPanPaddingTopLeft:  L.point(36, 44),
-          autoPanPaddingBottomRight: L.point(36, 44)
+          autoPanPadding: [20, 20]
         }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
 
         if (id == null) {
           popup.setContent('このポイントに ID 属性がありません。');
           return;
         }
+
         const url = `data/waterfall/waterfall_ID${id}_RF.png`;
+
+        // 画像の存在確認（エラー表示のため）
         const img = new Image();
-        img.onload = () => { popup.setContent(buildPngPopupHtml(id, url)); };
+        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
         img.onerror = () => { popup.setContent(`ファイルが見つかりません：<code>${url}</code>`); };
         img.src = url;
       }
 
+      // ===== レイヤー追加（必要最小限）=====
       for (const tableName of featureTables) {
-        // 表示用レイヤ（leaflet-geopackage）: L.GeoJSON互換なのでスタイルやポップアップを設定可能
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: gpkgUrl,
           layerName: tableName,
-          // CircleMarkerでポイントを描画（半径や色は必要に応じて調整）
           pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
-            radius: 5,
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.7
+            radius: 5, weight: 1, opacity: 1, fillOpacity: 0.7
           }),
           onEachFeature: (feature, lyr) => {
-            // クリックで ID を参照し、data/waterfall/waterfall_ID{ID}_RF.png を表示
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
-
-            // 表示範囲の更新（ポイント/ライン/ポリゴン対応）
-            try {
-              if (typeof lyr.getLatLng === 'function') {
-                globalBounds.extend(lyr.getLatLng());
-              } else if (typeof lyr.getBounds === 'function') {
-                globalBounds.extend(lyr.getBounds());
-              }
-            } catch (e) { /* noop */ }
           }
         }).addTo(map);
 
         layersControl.addOverlay(layer, tableName);
-        addedLayers.push(layer);
       }
-
-      // 自動フィットは無効化（初期ズームは滑川町のまま）
-      // if (globalBounds.isValid()) {
-      //   map.fitBounds(globalBounds.pad(0.1));
-      // }
 
       gpkg.close();
-
-      // 再帰的に座標配列からBoundsを拡張（未使用ヘルパー：必要なら利用）
-      function addCoordsToBounds(coords, bounds) {
-        if (!coords) return;
-        if (typeof coords[0] === 'number') {
-          // [lng, lat]
-          bounds.extend([coords[1], coords[0]]);
-        } else {
-          for (const c of coords) addCoordsToBounds(c, bounds);
-        }
-      }
     })().catch((err) => {
       console.error(err);
       alert('読み込み中にエラーが発生しました。コンソールを確認してください。\n' + err.message);
@@ -181,4 +195,3 @@
   </script>
 </body>
 </html>
-
