@@ -31,10 +31,10 @@
     /* ====== 追加：ポップアップと画像を大きくするための調整 ====== */
     /* 大きめのポップアップ用クラス */
     .wf-popup .leaflet-popup-content {
-      max-width: min(90vw, 900px);
-      max-height: 85vh;
+      max-width: calc(100vw - 96px);
+       max-height: calc(100vh - 128px);
       overflow: auto;            /* はみ出す場合はスクロール可 */
-      margin: 10px 14px;         /* 既定より少しコンパクトに */
+      margin: 8px 10px;         /* 既定より少しコンパクトに */
     }
     .wf-popup .leaflet-popup-content-wrapper {
       border-radius: 12px;
@@ -44,8 +44,8 @@
       display: block;
       width: auto;
       height: auto;
-      max-width: min(85vw, 900px);
-      max-height: min(85vh, 900px);
+      max-width: calc(100vw - 120px);
+      max-height: calc(100vh - 160px);
     }
     .wf-pop a { text-decoration: underline; }
   </style>
@@ -107,10 +107,12 @@
 
         // ★ ポップアップを大きめに：maxWidthを拡大し、クラスを付与
         const popup = L.popup({
-          maxWidth: 900,
+          maxWidth: Math.min(window.innerWidth - 96, 900),
           className: 'wf-popup',
           autoPan: true,
-          autoPanPadding: [24, 24]
+          // 余白を少し増やし、上下左右で個別指定（“ほんの少し”のはみ出しを避ける）
+          autoPanPaddingTopLeft:  L.point(36, 44),
+          autoPanPaddingBottomRight: L.point(36, 44)
         }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
 
         if (id == null) {
@@ -179,3 +181,4 @@
   </script>
 </body>
 </html>
+
