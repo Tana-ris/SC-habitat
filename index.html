@@ -27,6 +27,27 @@
     #map { height: 100%; width: 100%; }
     .leaflet-control-layers-expanded { max-height: 300px; overflow:auto; }
     .credits { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.9); padding: 6px 8px; border-radius: 8px; font: 12px/1.2 system-ui, sans-serif; }
+
+    /* ====== 追加：ポップアップと画像を大きくするための調整 ====== */
+    /* 大きめのポップアップ用クラス */
+    .wf-popup .leaflet-popup-content {
+      max-width: min(90vw, 900px);
+      max-height: 85vh;
+      overflow: auto;            /* はみ出す場合はスクロール可 */
+      margin: 10px 14px;         /* 既定より少しコンパクトに */
+    }
+    .wf-popup .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+    }
+    /* ポップアップ内の画像：画面に合わせて拡大・縮小 */
+    .wf-img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: min(85vw, 900px);
+      max-height: min(85vh, 900px);
+    }
+    .wf-pop a { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -40,18 +61,18 @@
 
       // GeoPackageライブラリに、WASM(sql-wasm.wasm)の取得先CDNを明示
       // GeoPackage のグローバルから、バージョン差異に対応（GeoPackageManager か GeoPackageAPI）
-const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
-const GPM = GeoPackageManager || GeoPackageAPI;
-if (!GPM || typeof GPM.open !== 'function') {
-  console.error('window.GeoPackage keys:', window.GeoPackage && Object.keys(window.GeoPackage));
-  throw new Error('GeoPackageライブラリの初期化に失敗しました（GeoPackageManager/GeoPackageAPI が見つからない）');
-}
+      const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
+      const GPM = GeoPackageManager || GeoPackageAPI;
+      if (!GPM || typeof GPM.open !== 'function') {
+        console.error('window.GeoPackage keys:', window.GeoPackage && Object.keys(window.GeoPackage));
+        throw new Error('GeoPackageライブラリの初期化に失敗しました（GeoPackageManager/GeoPackageAPI が見つからない）');
+      }
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
       // ===== 地図初期化 =====
       // 初期表示：滑川町（埼玉県）にズーム
-// 参考座標（町役場付近）：36.066000, 139.360972
-const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
+      // 参考座標（町役場付近）：36.066000, 139.360972
+      const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
@@ -69,14 +90,29 @@ const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
       const addedLayers = [];
       const globalBounds = L.latLngBounds([]);
 
-      // === クリック時に ID を使って PNG を表示する（固定拡張子 .png） ===
+      // === クリック時に ID を使って PNG を表示する ===
       function buildPngPopupHtml(id, url) {
-        return `<div class="wf-pop"><img src="${url}" alt="waterfall_ID${id}_RF" style="max-width:300px;max-height:300px;display:block" /><div style="margin-top:4px;"><a target="_blank" href="${url}">新しいタブで開く</a></div></div>`;
+        return `
+          <div class="wf-pop">
+            <img class="wf-img" src="${url}" alt="waterfall_ID${id}_RF" />
+            <div style="margin-top:6px;">
+              <a target="_blank" href="${url}">新しいタブで開く</a>
+            </div>
+          </div>`;
       }
+
       async function handleWaterfallClick(feature, ev) {
         const props = (feature && feature.properties) || {};
         const id = props.ID ?? props.id ?? props.Id;
-        const popup = L.popup({ maxWidth: 420 }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
+
+        // ★ ポップアップを大きめに：maxWidthを拡大し、クラスを付与
+        const popup = L.popup({
+          maxWidth: 900,
+          className: 'wf-popup',
+          autoPan: true,
+          autoPanPadding: [24, 24]
+        }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
+
         if (id == null) {
           popup.setContent('このポイントに ID 属性がありません。');
           return;
@@ -117,20 +153,16 @@ const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
 
         layersControl.addOverlay(layer, tableName);
         addedLayers.push(layer);
-
-        // 以前は gpkg.queryForGeoJSONFeatures(...) を使ってboundsを計算していましたが
-        // バージョン差で未実装なため、onEachFeatureで随時globalBoundsを更新する方式に変更しました。
       }
 
-      // 自動フィットは無効化（初期ズームは滑川町のまま）。
-      // 必要なら下のコメントを外して、データ全体にフィットさせられます。
+      // 自動フィットは無効化（初期ズームは滑川町のまま）
       // if (globalBounds.isValid()) {
       //   map.fitBounds(globalBounds.pad(0.1));
       // }
 
       gpkg.close();
 
-      // 再帰的に座標配列からBoundsを拡張
+      // 再帰的に座標配列からBoundsを拡張（未使用ヘルパー：必要なら利用）
       function addCoordsToBounds(coords, bounds) {
         if (!coords) return;
         if (typeof coords[0] === 'number') {
