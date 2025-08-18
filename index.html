@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Probability_of_occurrence.gpkg を地図に重ねて可視化</title>
+  <title>Visualizing Probability_of_occurrence.gpkg on a Map</title>
 
   <!-- Leaflet -->
   <link
@@ -18,9 +18,9 @@
     crossorigin=""
   ></script>
 
-  <!-- GeoPackage（ブラウザでGPKGを読むために必要）-->
+  <!-- GeoPackage (browser) -->
   <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
-  <!-- Leaflet用のGeoPackageプラグイン（URLから直接レイヤーを読み込む）-->
+  <!-- Leaflet GeoPackage plugin (load layers from URL) -->
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
   <style>
@@ -34,7 +34,7 @@
       z-index: 500;
     }
 
-    /* ===== ポップアップ（大きめ＆はみ出し防止） ===== */
+    /* ===== Popup (large, responsive, keep-in-view) ===== */
     .wf-popup .leaflet-popup-content-wrapper {
       border-radius: 12px;
       overflow: hidden;
@@ -50,17 +50,17 @@
       .wf-popup .leaflet-popup-content { height: clamp(260px, 60dvh, 720px); }
     }
 
-    /* ポップアップ内部 */
+    /* Popup inner layout */
     .wf-pop {
       width: 100%; height: 100%;
       display: flex; flex-direction: column; gap: 8px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
     }
     .wf-prob {
-      font-size: clamp(16px, 2vw, 22px); /* 大きく */
+      font-size: clamp(16px, 2vw, 22px);
       line-height: 1.4;
       font-weight: 700;
-      text-align: center;               /* 中央寄せ */
+      text-align: center;
       white-space: normal; overflow-wrap: anywhere; word-break: break-word;
       padding: 6px 8px;
       background: rgba(0,0,0,.03);
@@ -80,13 +80,13 @@
     }
     .wf-link {
       margin-top: 2px;
-      font-size: clamp(14px, 1.6vw, 18px); /* 少し大きく */
+      font-size: clamp(14px, 1.6vw, 18px);
       font-weight: 700;
-      text-align: center;                  /* 中央寄せ */
+      text-align: center;
     }
     .wf-link a { text-decoration: underline; }
 
-    /* ✖ボタンを大きく */
+    /* Larger close button */
     .wf-popup .leaflet-popup-close-button {
       width: 28px; height: 28px;
       line-height: 28px; font-size: 18px; font-weight: 800;
@@ -96,7 +96,7 @@
     }
     .wf-popup .leaflet-popup-close-button:hover { background: rgba(0,0,0,.8); }
 
-    /* ===== レジェンド ===== */
+    /* ===== Legend ===== */
     .wf-legend.leaflet-control {
       background: rgba(255,255,255,.95);
       padding: 8px 10px; border-radius: 8px;
@@ -110,43 +110,43 @@
 </head>
 <body>
   <div id="map"></div>
-  <div class="credits">データ: <code>data/Probability_of_occurrence.gpkg</code></div>
+  <div class="credits">Data: <code>data/Probability_of_occurrence.gpkg</code></div>
 
   <script>
     (async function () {
-      // ===== 設定 =====
+      // ===== Settings =====
       const gpkgUrl = 'data/Probability_of_occurrence.gpkg';
 
-      // 多言語（日本語/英語）
+      // i18n (JA/EN). We use EN by default for international audiences.
       const I18N = {
         ja: { probLabel: '生息確率', propKey: 'Probability', open: '画像を新しいタブで開く' },
-        en: { probLabel: 'Probability　of　occurrence', propKey: 'Probability', open: 'Open image in a new tab' },
+        en: { probLabel: 'Occurrence probability', propKey: 'Probability', open: 'Open image in a new tab' },
       };
-      const LANG = 'en'; // 'en' にすると英語表記
+      const LANG = 'en';
 
-      // GeoPackage 初期化
+      // GeoPackage init
       const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
       const GPM = GeoPackageManager || GeoPackageAPI;
       if (!GPM || typeof GPM.open !== 'function') {
         console.error('window.GeoPackage keys:', window.GeoPackage && Object.keys(window.GeoPackage));
-        throw new Error('GeoPackageライブラリの初期化に失敗しました（GeoPackageManager/GeoPackageAPI が見つからない）');
+        throw new Error('Failed to initialize GeoPackage library (GeoPackageManager/GeoPackageAPI missing).');
       }
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // ===== 地図初期化（滑川町周辺） =====
+      // ===== Map init (Namegawa area) =====
       const map = L.map('map', { center: [36.066000, 139.360972], zoom: 14 });
 
-      // ベースレイヤー
+      // Basemaps
       const baseLayers = {
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }),
-        'GSI 標準地図': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+        'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
           maxZoom: 18,
           attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">GSI</a>'
         }),
-        'GSI 淡色地図': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+        'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
           maxZoom: 18,
           attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">GSI</a>'
         }),
@@ -154,7 +154,7 @@
           maxZoom: 17,
           attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/">OSM</a>, SRTM | Tiles: &copy; OpenTopoMap'
         }),
-        'Esri 衛星（World Imagery）': L.tileLayer(
+        'Esri World Imagery': L.tileLayer(
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
           {
             maxZoom: 19,
@@ -162,22 +162,21 @@
           }
         )
       };
-      baseLayers['GSI 標準地図'].addTo(map);
+      baseLayers['GSI Standard Map'].addTo(map);
 
       const overlayLayers = {};
       const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false }).addTo(map);
 
-      // ===== GPKG 読み込み =====
+      // ===== Load GPKG =====
       const resp = await fetch(gpkgUrl);
-      if (!resp.ok) throw new Error(`GPKGの取得に失敗しました: ${resp.status} ${resp.statusText}`);
+      if (!resp.ok) throw new Error(`Failed to fetch GPKG: ${resp.status} ${resp.statusText}`);
       const arrayBuf = await resp.arrayBuffer();
       const gpkg = await GPM.open(new Uint8Array(arrayBuf));
       const featureTables = gpkg.getFeatureTables();
-      if (!featureTables || featureTables.length === 0) throw new Error('このGeoPackageにフィーチャレイヤーが見つかりません');
+      if (!featureTables || featureTables.length === 0) throw new Error('No feature layers were found in this GeoPackage.');
 
-      // ===== 値の取得と整形 =====
+      // ===== Value extraction (to %) =====
       function getProbAsPercent(props) {
-        // 候補キー（綴り揺れ対応）
         const cand = ['Probablity','Probability','probability','PROBABILITY','prob','value'];
         let v = null;
         for (const key of cand) {
@@ -186,23 +185,24 @@
           }
         }
         if (!isFinite(v)) return null;
-        if (v >= 0 && v <= 1) return v * 100;   // 0-1 → %
-        if (v > 1 && v <= 100) return v;        // 1-100 → そのまま %
+        if (v >= 0 && v <= 1) return v * 100;   // 0–1 -> %
+        if (v > 1 && v <= 100) return v;        // 1–100 -> % as-is
         return null;
       }
 
-      // ===== 等級色（10–80 を 10刻みの 7段 + 外れ値） =====
-      // クラス: <10, 10–20, 20–30, 30–40, 40–50, 50–60, 60–70, 70–80, >80
-      const colorBelow = '#e0e0e0';  // <10
+      // ===== Classed colors (10–80 by 10; 8 classes + out-of-range) =====
+      // Classes: <10, 10–20, 20–30, 30–40, 40–50, 50–60, 60–70, 70–80, >80
+      const colorBelow = '#eeeeee';  // <10
       const colorAbove = '#4a1486';  // >80
       const ramp = [
-        '#fff7bc', // 10–20
-        '#fee391', // 20–30
-        '#fec44f', // 30–40
-        '#fe9929', // 40–50
-        '#ec7014', // 50–60
-        '#cc4c02', // 60–70
-        '#993404', // 70–80
+        '#fff7ec', // 10–20
+        '#fee8c8', // 20–30
+        '#fdd49e', // 30–40
+        '#fdbb84', // 40–50
+        '#fc8d59', // 50–60
+        '#ef6548', // 60–70
+        '#d7301f', // 70–80
+        '#990000', // (not used directly; kept for reference)
       ];
       function colorForPercent(p) {
         if (p == null) return '#9e9e9e';
@@ -217,13 +217,13 @@
         return colorAbove;
       }
 
-      // ===== ポップアップHTML =====
+      // ===== Popup HTML =====
       const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
-      const buildPngPopupHtml = (probText, url, id, lang = 'ja') => {
-        const t = I18N[lang] ?? I18N.ja;
+      const buildPngPopupHtml = (probText, url, id, lang = 'en') => {
+        const t = I18N[lang] ?? I18N.en;
         return `
           <div class="wf-pop">
-            <div class="wf-prob">${t.probLabel}（<code>${t.propKey}</code>）: <strong>${probText}</strong></div>
+            <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
             <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
             <div class="wf-img-wrap">
               <img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" />
@@ -244,10 +244,10 @@
           autoPan: true,
           keepInView: true,
           autoPanPadding: [30, 30]
-        }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
+        }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
 
         if (id == null) {
-          popup.setContent('このポイントに ID 属性がありません。');
+          popup.setContent('This point has no ID attribute.');
           return;
         }
 
@@ -255,11 +255,11 @@
 
         const img = new Image();
         img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id, LANG)); };
-        img.onerror = () => { popup.setContent(`ファイルが見つかりません：<code>${url}</code>`); };
+        img.onerror = () => { popup.setContent(`File not found: <code>${url}</code>`); };
         img.src = url;
       }
 
-      // ===== レイヤー追加（ポイントサイズ↑・枠線は白） =====
+      // ===== Add layers (bigger points, white stroke) =====
       for (const tableName of featureTables) {
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: gpkgUrl,
@@ -267,10 +267,10 @@
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             return L.circleMarker(latlng, {
-              radius: 8,          // ← 少し大きく
-              weight: 2,          // 枠線太さ
+              radius: 8,          // bigger
+              weight: 2,          // stroke width
               opacity: 1,
-              color: '#ffffff',   // ← 枠線は白
+              color: '#ffffff',   // white stroke
               fillOpacity: 0.9,
               fillColor: colorForPercent(p)
             });
@@ -284,12 +284,12 @@
         layersControl.addOverlay(layer, tableName);
       }
 
-      // ===== レジェンド =====
+      // ===== Legend =====
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
         const items = [];
-        items.push('<h4>値（%）</h4>');
+        items.push('<h4>Probability (%)</h4>');
         items.push(`<div class="item"><span class="swatch" style="background:${colorBelow}"></span><span>&lt; 10</span></div>`);
         items.push(`<div class="item"><span class="swatch" style="background:${ramp[0]}"></span><span>10–20</span></div>`);
         items.push(`<div class="item"><span class="swatch" style="background:${ramp[1]}"></span><span>20–30</span></div>`);
@@ -300,8 +300,7 @@
         items.push(`<div class="item"><span class="swatch" style="background:${ramp[6]}"></span><span>70–80</span></div>`);
         items.push(`<div class="item"><span class="swatch" style="background:${colorAbove}"></span><span>&gt; 80</span></div>`);
         div.innerHTML = items.join('');
-        L.D
-omEvent.disableClickPropagation(div);
+        L.DomEvent.disableClickPropagation(div);
         return div;
       };
       legend.addTo(map);
@@ -309,7 +308,7 @@ omEvent.disableClickPropagation(div);
       gpkg.close();
     })().catch((err) => {
       console.error(err);
-      alert('読み込み中にエラーが発生しました。コンソールを確認してください。\n' + err.message);
+      alert('An error occurred while loading. See console for details.\n' + err.message);
     });
   </script>
 </body>
