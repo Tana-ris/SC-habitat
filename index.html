@@ -22,12 +22,6 @@
   <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
-  <!-- GeoTIFF / GeoRaster / Layer  ※順序重要 -->
-  <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
-  <!-- ★以前動いていた形：ルート URL（UMD）を使用 -->
-  <script src="https://unpkg.com/georaster"></script>
-  <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
-
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
@@ -95,9 +89,7 @@
       gap: 10px; margin: 0 0 10px; font-weight: 700;
       font-size: calc(var(--legend-font-size) * 1.0);
     }
-    .wf-legend .mini-btn {
-      position: static; gap: 4px;
-    }
+    .wf-legend .mini-btn { position: static; gap: 4px; }
     .wf-legend .body { display: block; }
     .wf-legend .item {
       display: grid; grid-template-columns: var(--legend-swatch) 1fr;
@@ -116,7 +108,7 @@
     }
     .wf-legend.is-collapsed .body { display: none; }
 
-    /* ===== Popup / Inset / Credits ===== */
+    /* ===== Popup / Inset ===== */
     .wf-popup .leaflet-popup-content-wrapper { border-radius: 12px; overflow: hidden; }
     .wf-popup .leaflet-popup-content {
       box-sizing: border-box; width: clamp(280px, 60vw, 960px);
@@ -141,16 +133,12 @@
     .wf-inset img.is-beeswarm { max-width: clamp(300px, 36vw, 600px); max-height: clamp(180px, 36vh, 380px); }
     .wf-inset .cap { margin-top: 6px; text-align: center; font: 12px/1.3 system-ui, sans-serif; }
 
-    .credits {
-      position: absolute; top: 12px; right: 12px; left: auto;
-      background: rgba(255,255,255,.9); padding: 6px 8px;
-      border-radius: 8px; font: 12px/1.2 system-ui, sans-serif; z-index: 500;
-    }
+    /* クリックできる点のカーソル */
+    .wf-point { cursor: pointer; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="credits">Data: <code>data/Probability_of_occurrence.gpkg</code></div>
 
   <script>
     (async function () {
@@ -158,7 +146,6 @@
       const gpkgPointsUrl = 'data/Probability_of_occurrence.gpkg';
       const gpkgStudyUrl  = 'data/Study_area.gpkg';
       const gpkgStreamUrl = 'data/stream.gpkg';
-      const elevUrl       = 'data/Elevation.tif';
 
       const I18N = { en: { probLabel: 'Probability\u3000of\u3000occurrence', propKey: 'Probability', open: 'Open image in a new tab' } };
       const LANG = 'en';
@@ -169,20 +156,36 @@
       if (!GPM || typeof GPM.open !== 'function') throw new Error('Failed to initialize GeoPackage library.');
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // Map & panes
-      const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 13 });
-      map.createPane('pane-raster');  map.getPane('pane-raster').style.zIndex  = 305;
+      // Map
+      const map = L.map('map', {
+        center: [36.07342672630755, 139.35873321947636],
+        zoom: 13
+      });
+
+      // Panes（ラスタは使用しないため2つのみ）
       map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310;
       map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320;
 
       // Basemaps
       const baseLayers = {
-        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }),
-        'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; GSI' }),
-        'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; GSI' }),
-        'Esri World Imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' })
+        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+        }),
+        'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+          maxZoom: 18, attribution: '&copy; GSI'
+        }),
+        'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+          maxZoom: 18, attribution: '&copy; GSI'
+        }),
+        'Esri World Imagery': L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+        )
       };
       baseLayers['OpenStreetMap'].addTo(map);
+
+      // 補助: 縮尺バー
+      L.control.scale({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 120 }).addTo(map);
 
       // Controls
       const overlayLayers = {};
@@ -249,59 +252,22 @@
           <div class="wf-img-wrap"><img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" /></div>
         </div>`;
 
-      // ===== Elevation (GeoTIFF raster) =====
-      try {
-        const elevResp = await fetch(elevUrl);
-        if (!elevResp.ok) throw new Error(`Failed to fetch ${elevUrl}: ${elevResp.status} ${elevResp.statusText}`);
-        const elevBuf = await elevResp.arrayBuffer();
-
-        // ★ ビルド差異に対応した自動検出（以前の実装に戻す）
-        const parse =
-          (typeof window.parseGeoraster === 'function' && window.parseGeoraster) ||
-          (typeof window.parseGeoRaster === 'function' && window.parseGeoRaster) ||
-          (window.georaster && (window.georaster.parseGeoraster || window.georaster.parse));
-
-        if (typeof parse !== 'function') {
-          throw new ReferenceError('georaster parser not found (parseGeoraster/parseGeoRaster). Check <script src="https://unpkg.com/georaster"> load & cache.');
-        }
-
-        const georaster = await parse(elevBuf);
-        const min = (georaster.mins && georaster.mins[0]) ?? 0;
-        const max = (georaster.maxs && georaster.maxs[0]) ?? (min + 1);
-
-        // 地形風パレット（緑→黄土→褐色→灰→白）
-        function hexToRgb(hex){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:{r:0,g:0,b:0};}
-        function rgbToHex(r,g,b){const toHex=(v)=>('0'+v.toString(16)).slice(-2);return `#${toHex(r)}${toHex(g)}${toHex(b)}`;}
-        function lerp(a,b,t){return a+(b-a)*t;}
-        function lerpColor(c1,c2,t){const A=hexToRgb(c1),B=hexToRgb(c2);return rgbToHex(Math.round(lerp(A.r,B.r,t)),Math.round(lerp(A.g,B.g,t)),Math.round(lerp(A.b,B.b,t)));}
-
-        const stops = [
-          { t: 0.00, c: '#00441b' }, { t: 0.15, c: '#1b7837' },
-          { t: 0.30, c: '#5aae61' }, { t: 0.50, c: '#a6d96a' },
-          { t: 0.70, c: '#dfc27d' }, { t: 0.85, c: '#a6611a' },
-          { t: 0.94, c: '#cfcfcf' }, { t: 1.00, c: '#ffffff' }
-        ];
-        function colorForElev(v){
-          if (v == null || !isFinite(v)) return null;
-          const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
-          for (let i=0; i<stops.length-1; i++) {
-            const a=stops[i], b=stops[i+1];
-            if (t >= a.t && t <= b.t) return lerpColor(a.c, b.c, (t-a.t)/(b.t-a.t || 1e-6));
-          }
-          return stops[stops.length-1].c;
-        }
-
-        const elevationLayer = new GeoRasterLayer({
-          georaster, pane: 'pane-raster', opacity: 0.65, resolution: 256,
-          pixelValuesToColorFn: values => colorForElev(values[0])
-        }).addTo(map);
-        overlayLayers['Elevation'] = elevationLayer;
-        layersControl.addOverlay(elevationLayer, 'Elevation');
-      } catch (e) {
-        console.warn('Skipping Elevation.tif loading:', e);
+      async function handleWaterfallClick(feature, ev) {
+        const props = (feature && feature.properties) || {};
+        const id = props.ID ?? props.id ?? props.Id;
+        const p = getProbAsPercent(props);
+        const probText = formatProbabilityText(p);
+        const popup = L.popup({ maxWidth: Math.min(960, Math.floor(window.innerWidth * 0.9)), className: 'wf-popup',
+          autoPan: true, keepInView: true, autoPanPadding: [30, 30] }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
+        if (id == null) { popup.setContent('This point has no ID attribute.'); return; }
+        const url = `data/waterfall/waterfall_ID${id}_RF.png`;
+        const img = new Image();
+        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
+        img.onerror = () => { popup.setContent(`File not found: <code>${url}</code>`); };
+        img.src = url;
       }
 
-      // ===== Simple GPKG loader =====
+      // ===== Simple GPKG loader（group を返す） =====
       async function addSimpleVectorGpkg(url, paneName, layerLabel, styleObj) {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status} ${resp.statusText}`);
@@ -325,15 +291,23 @@
         overlayLayers[layerLabel] = group;
         layersControl.addOverlay(group, layerLabel);
         gpkg.close();
+        return group;
       }
 
-      // Study area：塗り無し & 太線
-      await addSimpleVectorGpkg(gpkgStudyUrl, 'pane-study', 'Study area',
-        { color: '#263238', weight: 3.8, fillOpacity: 0, fill: false });
+      // Study area：塗り無し & 太線（→ 読み込み後に全体へフィット）
+      const studyGroup = await addSimpleVectorGpkg(
+        gpkgStudyUrl, 'pane-study', 'Study area',
+        { color: '#263238', weight: 3.8, fillOpacity: 0, fill: false }
+      );
+      // 自動ズーム
+      const bounds = studyGroup.getBounds();
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
 
       // Streams
-      await addSimpleVectorGpkg(gpkgStreamUrl, 'pane-streams', 'Streams',
-        { color: '#1e88e5', weight: 2, opacity: 0.95 });
+      await addSimpleVectorGpkg(
+        gpkgStreamUrl, 'pane-streams', 'Streams',
+        { color: '#1e88e5', weight: 2, opacity: 0.95 }
+      );
 
       // Points
       const respPts = await fetch(gpkgPointsUrl);
@@ -354,7 +328,10 @@
             });
           },
           onEachFeature: (feature, lyr) => {
-            lyr.setStyle({ color: '#ffffff' });
+            // ホバーで強調
+            const base = { radius: 8, weight: 2 };
+            lyr.on('mouseover', () => lyr.setStyle({ radius: 10, weight: 3 }));
+            lyr.on('mouseout',  () => lyr.setStyle(base));
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
           }
         }).addTo(map);
@@ -362,11 +339,23 @@
         overlayLayers[displayName] = layer;
         layersControl.addOverlay(layer, displayName);
       }
+      gpkgPts.close();
 
       // ===== Legend（右下） =====
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
+        const items = `
+          <div class="item"><span class="swatch" style="background:#eeeeee"></span><span>&lt; 10</span></div>
+          <div class="item"><span class="swatch" style="background:#fff7ec"></span><span>10–20</span></div>
+          <div class="item"><span class="swatch" style="background:#fee8c8"></span><span>20–30</span></div>
+          <div class="item"><span class="swatch" style="background:#fdd49e"></span><span>30–40</span></div>
+          <div class="item"><span class="swatch" style="background:#fdbb84"></span><span>40–50</span></div>
+          <div class="item"><span class="swatch" style="background:#fc8d59"></span><span>50–60</span></div>
+          <div class="item"><span class="swatch" style="background:#ef6548"></span><span>60–70</span></div>
+          <div class="item"><span class="swatch" style="background:#d7301f"></span><span>70–80</span></div>
+          <div class="item"><span class="swatch" style="background:#4a1486"></span><span>&gt; 80</span></div>
+        `;
         div.innerHTML = `
           <div class="hdr">
             <span>Probability of occurrence (%)</span>
@@ -375,30 +364,19 @@
               <button type="button" title="Hide">–</button>
             </div>
           </div>
-          <div class="body">
-            <div class="item"><span class="swatch" style="background:${colorBelow}"></span><span>&lt; 10</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[0]}"></span><span>10–20</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[1]}"></span><span>20–30</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[2]}"></span><span>30–40</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[3]}"></span><span>40–50</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[4]}"></span><span>50–60</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[5]}"></span><span>60–70</span></div>
-            <div class="item"><span class="swatch" style="background:${ramp[6]}"></span><span>70–80</span></div>
-            <div class="item"><span class="swatch" style="background:${colorAbove}"></span><span>&gt; 80</span></div>
-          </div>
+          <div class="body">${items}</div>
         `;
         L.DomEvent.disableClickPropagation(div);
         return div;
       };
       legend.addTo(map);
 
-      // 凡例の小型トグル
+      // 凡例のミニトグル
       const lg = legend.getContainer();
       const [btnLGCompact, btnLGCollapse] = lg.querySelectorAll('.mini-btn button');
       btnLGCompact.addEventListener('click', (e) => { e.stopPropagation(); lg.classList.toggle('is-compact'); });
       btnLGCollapse.addEventListener('click', (e) => { e.stopPropagation(); lg.classList.toggle('is-collapsed'); });
 
-      gpkgPts.close();
     })().catch((err) => {
       console.error(err);
       alert('An error occurred while loading. See console for details.\n' + err.message);
