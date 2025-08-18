@@ -69,6 +69,32 @@ const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
       const addedLayers = [];
       const globalBounds = L.latLngBounds([]);
 
+      // === クリック時に ID を使って PNG を表示する（固定拡張子 .png） ===
+      function buildPngPopupHtml(id, url) {
+        return `<div class="wf-pop"><img src="${url}" alt="waterfall_ID${id}_RF" style="max-width:300px;max-height:300px;display:block" /><div style="margin-top:4px;"><a target="_blank" href="${url}">新しいタブで開く</a></div></div>`;
+      }
+      async function handleWaterfallClick(feature, ev) {
+        const props = (feature && feature.properties) || {};
+        const id = props.ID ?? props.id ?? props.Id;
+        const popup = L.popup({ maxWidth: 420 }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
+        if (id == null) {
+          popup.setContent('このポイントに ID 属性がありません。');
+          return;
+        }
+        const url = `data/waterfall/waterfall_ID${id}_RF.png`;
+        // 画像の存在確認とロード（HEADは使わず、Imageオブジェクトで確認）
+        const img = new Image();
+        img.onload = () => {
+          popup.setContent(buildPngPopupHtml(id, url));
+        };
+        img.onerror = () => {
+          popup.setContent(`ファイルが見つかりません：<code>${url}</code>`);
+        };
+        img.src = url;
+      }
+
+      
+
       for (const tableName of featureTables) {
         // 表示用レイヤ（leaflet-geopackage）: L.GeoJSON互換なのでスタイルやポップアップを設定可能
         const layer = L.geoPackageFeatureLayer([], {
@@ -82,13 +108,10 @@ const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
             fillOpacity: 0.7
           }),
           onEachFeature: (feature, lyr) => {
-            if (feature && feature.properties) {
-              const rows = Object.entries(feature.properties)
-                .map(([k, v]) => `<tr><th style="text-align:left; padding-right:6px;">${k}</th><td>${v}</td></tr>`)
-                .join('');
-              lyr.bindPopup(`<table>${rows}</table>`);
-            }
-            // 追加：各フィーチャ追加時に表示範囲を更新（ポイント/ライン/ポリゴン対応）
+            // クリックで ID を参照し、data/waterfall/waterfall_ID{ID}_RF.png を表示
+            lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
+
+            // 表示範囲の更新（ポイント/ライン/ポリゴン対応）
             try {
               if (typeof lyr.getLatLng === 'function') {
                 globalBounds.extend(lyr.getLatLng());
