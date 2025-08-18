@@ -23,19 +23,20 @@
   <!-- Leaflet GeoPackage plugin (load layers from URL) -->
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
-  <!-- GeoTIFF / GeoRaster / GeoRasterLayer
-       ※ georaster は README 推奨のエントリポイントを使用し、関数名は実行時に自動解決します -->
+  <!-- GeoTIFF / GeoRaster / GeoRasterLayer（推奨の読み込み順） -->
   <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
-  <script src="https://unpkg.com/georaster"></script>
+  <!-- georaster は UMD 版を指定（グローバルに parser を公開） -->
+  <script src="https://unpkg.com/georaster/dist/georaster.browser.min.js"></script>
   <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
 
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
 
-    /* ===== Bigger layer switcher (top-left) ===== */
+    /* ===== Layers control (top-left) ===== */
     .leaflet-control-layers {
       font-size: clamp(14px, 1.6vw, 18px);
+      transition: transform .15s ease, opacity .15s ease;
     }
     .leaflet-control-layers-expanded {
       max-height: 380px; overflow: auto;
@@ -49,13 +50,42 @@
     }
     .leaflet-control-layers-toggle { width: 34px; height: 34px; }
 
+    /* コンパクト化（トグル用） */
+    .leaflet-control-layers.is-compact {
+      font-size: 12px;
+    }
+    .leaflet-control-layers.is-compact .leaflet-control-layers-expanded {
+      max-height: 180px;
+      padding: 6px 8px;
+    }
+    .leaflet-control-layers.is-compact input {
+      transform: scale(1.0);
+      margin-right: 4px;
+    }
+
+    /* トグルボタン（左上） */
+    .ui-toggle.leaflet-control {
+      background: rgba(255,255,255,.96);
+      padding: 6px 8px; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.12);
+      font: 13px/1.2 system-ui, sans-serif;
+      display: grid; gap: 6px;
+    }
+    .ui-toggle button {
+      cursor: pointer;
+      border: 1px solid rgba(0,0,0,.15);
+      border-radius: 8px;
+      background: #fff;
+      padding: 6px 10px;
+    }
+
     /* ===== Legend (bottom-right) ===== */
     .wf-legend.leaflet-control {
       --legend-font-size: clamp(15px, 1.8vw, 20px);
       --legend-line-height: 1.45;
       --legend-swatch: clamp(18px, 2vw, 24px);
       --legend-gap: clamp(8px, 1vw, 12px);
-    
+
       background: rgba(255,255,255,.96);
       padding: 14px 16px;
       border-radius: 12px;
@@ -63,11 +93,21 @@
       font: var(--legend-font-size)/var(--legend-line-height) system-ui, sans-serif;
       font-variant-numeric: tabular-nums;
       min-width: 210px;
+      transition: all .15s ease;
     }
-    .wf-legend h4 {
-      margin: 0 0 10px;
-      font-size: calc(var(--legend-font-size) * 1.05);
-      font-weight: 700;
+    .wf-legend .hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin: 0 0 10px;
+      font-size: calc(var(--legend-font-size) * 1.05); font-weight: 700;
+    }
+    .wf-legend .btn-legend {
+      cursor: pointer;
+      border: 1px solid rgba(0,0,0,.15);
+      border-radius: 8px; background: #fff; padding: 4px 8px;
+      font: 12px/1 system-ui, sans-serif;
+    }
+    .wf-legend .body {
+      display: block;
     }
     .wf-legend .item {
       display: grid;
@@ -84,6 +124,16 @@
     }
     .wf-legend .item span:last-child { font-weight: 600; letter-spacing: .01em; }
 
+    /* コンパクト化（凡例） */
+    .wf-legend.is-compact {
+      --legend-font-size: 13px;
+      --legend-swatch: 16px;
+      --legend-gap: 6px;
+      padding: 10px 12px;
+      min-width: 170px;
+    }
+    .wf-legend.is-collapsed .body { display: none; }
+
     /* ===== Popup ===== */
     .wf-popup .leaflet-popup-content-wrapper { border-radius: 12px; overflow: hidden; }
     .wf-popup .leaflet-popup-content {
@@ -95,13 +145,22 @@
     @supports (height: 100dvh) {
       .wf-popup .leaflet-popup-content { height: clamp(260px, 60dvh, 720px); }
     }
-    .wf-pop { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
-    .wf-prob { font-size: clamp(16px, 2vw, 22px); line-height: 1.4; font-weight: 700; text-align: center;
+    .wf-pop {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column; gap: 8px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+    }
+    .wf-prob {
+      font-size: clamp(16px, 2vw, 22px);
+      line-height: 1.4; font-weight: 700; text-align: center;
       white-space: normal; overflow-wrap: anywhere; word-break: break-word;
-      padding: 6px 8px; background: rgba(0,0,0,.03); border-radius: 6px; }
-    .wf-img-wrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(0,0,0,.08); border-radius: 8px; background: #fff; }
+      padding: 6px 8px; background: rgba(0,0,0,.03); border-radius: 6px;
+    }
+    .wf-img-wrap {
+      flex: 1 1 auto; min-height: 0;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(0,0,0,.08); border-radius: 8px; background: #fff;
+    }
     .wf-img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .wf-link { margin-top: 2px; font-size: clamp(14px, 1.6vw, 18px); font-weight: 700; text-align: center; }
     .wf-link a { text-decoration: underline; }
@@ -198,6 +257,20 @@
         position: 'topleft'
       }).addTo(map);
 
+      // === Layers size toggle (top-left small panel) ===
+      const sizeToggle = L.control({ position: 'topleft' });
+      sizeToggle.onAdd = function () {
+        const div = L.DomUtil.create('div', 'ui-toggle');
+        div.innerHTML = `
+          <button type="button" id="btn-layers-size" aria-pressed="false" title="Toggle layers size">Layers: Compact</button>
+          <button type="button" id="btn-legend-size" aria-pressed="false" title="Toggle legend size">Legend: Compact</button>
+          <button type="button" id="btn-legend-collapse" aria-pressed="false" title="Collapse/Expand legend">Legend: Hide</button>
+        `;
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+      };
+      sizeToggle.addTo(map);
+
       // Inset image (bottom-left)
       const inset = L.control({ position: 'bottomleft' });
       inset.onAdd = function () {
@@ -205,7 +278,7 @@
         const url = 'data/beeswarm_RF.png';
         div.innerHTML = `
           <img class="is-beeswarm" src="${url}" alt="Beeswarm (Random Forest)"/>
-          <div class="cap">Beeswarm (Random Forest)</div>
+          <div class="cap">Global SHAP (Random Forest)</div>
         `;
         L.DomEvent.disableClickPropagation(div);
         return div;
@@ -229,10 +302,26 @@
       function prettyName(name) {
         if (!name) return 'Layer';
         const lower = String(name).toLowerCase();
-        if (lower === 'probability_of_occurrence') return 'Probability of occurrence';
+        if (lower === 'probability_of_occurrence') return 'Survey site locations';
         return String(name).replace(/_/g, ' ');
       }
 
+      // ==== Color helpers (hex interpolation) ====
+      function hexToRgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : {r:0,g:0,b:0};
+      }
+      function rgbToHex(r,g,b) {
+        const toHex = (v)=> ('0'+v.toString(16)).slice(-2);
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+      function lerp(a,b,t){ return a+(b-a)*t; }
+      function lerpColor(c1,c2,t){
+        const A=hexToRgb(c1), B=hexToRgb(c2);
+        return rgbToHex(Math.round(lerp(A.r,B.r,t)), Math.round(lerp(A.g,B.g,t)), Math.round(lerp(A.b,B.b,t)));
+      }
+
+      // ===== Points color ramp =====
       const colorBelow = '#eeeeee';  // <10
       const colorAbove = '#4a1486';  // >80
       const ramp = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f']; // 10–80
@@ -288,14 +377,13 @@
         if (!elevResp.ok) throw new Error(`Failed to fetch ${elevUrl}: ${elevResp.status} ${elevResp.statusText}`);
         const elevBuf = await elevResp.arrayBuffer();
 
-        // georaster の関数名はビルドにより異なる場合があるため自動解決
+        // georaster の parser を安全に取得（ビルド差異に対応）
         const parse =
           (typeof window.parseGeoraster === 'function' && window.parseGeoraster) ||
-          (typeof window.parseGeoRaster === 'function' && window.parseGeoRaster) ||
-          (typeof window.GeoRaster === 'function' && window.GeoRaster);
+          (typeof window.parseGeoRaster === 'function' && window.parseGeoRaster);
 
         if (typeof parse !== 'function') {
-          throw new ReferenceError('georaster parser not found. Check <script src="https://unpkg.com/georaster"> tag.');
+          throw new ReferenceError('Georaster parser not found. Check georaster script tag.');
         }
 
         const georaster = await parse(elevBuf);
@@ -303,19 +391,36 @@
         const min = (georaster.mins && georaster.mins[0]) ?? 0;
         const max = (georaster.maxs && georaster.maxs[0]) ?? (min + 1);
 
-        // Simple color ramp (low → high)
-        const elevRamp = ['#081d58','#225ea8','#1d91c0','#41b6c4','#7fcdbb','#c7e9b4','#ffffcc'];
-        const colorForElev = (v) => {
+        // ★ 自然な地形風パレット（低地: 濃緑 → 明緑 → 黄土 → 褐色 → 岩稜灰 → 雪白）
+        //   正規化 t ∈ [0,1] に対するカラー停止点
+        const stops = [
+          { t: 0.00, c: '#00441b' }, // deep green
+          { t: 0.15, c: '#1b7837' },
+          { t: 0.30, c: '#5aae61' },
+          { t: 0.50, c: '#a6d96a' },
+          { t: 0.70, c: '#dfc27d' }, // tan
+          { t: 0.85, c: '#a6611a' }, // brown
+          { t: 0.94, c: '#cfcfcf' }, // gray
+          { t: 1.00, c: '#ffffff' }  // snow
+        ];
+        function colorForElev(v) {
           if (v == null || !isFinite(v)) return null;
           const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
-          const idx = Math.min(elevRamp.length - 1, Math.floor(t * elevRamp.length));
-          return elevRamp[idx];
-        };
+          // 区間を探して線形補間
+          for (let i=0; i<stops.length-1; i++) {
+            const a = stops[i], b = stops[i+1];
+            if (t >= a.t && t <= b.t) {
+              const tt = (t - a.t) / (b.t - a.t || 1e-6);
+              return lerpColor(a.c, b.c, tt);
+            }
+          }
+          return stops[stops.length-1].c;
+        }
 
         const elevationLayer = new GeoRasterLayer({
           georaster,
           pane: 'pane-raster',
-          opacity: 0.6,
+          opacity: 0.65,
           resolution: 256,
           pixelValuesToColorFn: values => colorForElev(values[0])
         }).addTo(map);
@@ -352,12 +457,12 @@
         gpkg.close();
       }
 
-      // Study area polygon style (neutral, semi-transparent)
+      // ★ Study area：塗りを消し、境界線を太く
       await addSimpleVectorGpkg(
         gpkgStudyUrl,
         'pane-study',
         'Study area',
-        { color: '#424242', weight: 2.3, fillColor: '#c9ddf5', fillOpacity: 0.77 }
+        { color: '#263238', weight: 3.8, fillOpacity: 0, fill: false }
       );
 
       // Streams line style (blue, above polygon)
@@ -398,7 +503,6 @@
           }
         }).addTo(map);
 
-        // ★ レイヤコントロール表示名を整形（アンダーバーをスペース化）
         const displayName = prettyName(tableName);
         overlayLayers[displayName] = layer;
         layersControl.addOverlay(layer, displayName);
@@ -408,22 +512,71 @@
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
-        const items = [];
-        items.push('<h4>Probability of occurrence (%)</h4>');
-        items.push(`<div class="item"><span class="swatch" style="background:${colorBelow}"></span><span>&lt; 10</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[0]}"></span><span>10–20</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[1]}"></span><span>20–30</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[2]}"></span><span>30–40</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[3]}"></span><span>40–50</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[4]}"></span><span>50–60</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[5]}"></span><span>60–70</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${ramp[6]}"></span><span>70–80</span></div>`);
-        items.push(`<div class="item"><span class="swatch" style="background:${colorAbove}"></span><span>&gt; 80</span></div>`);
-        div.innerHTML = items.join('');
+        div.innerHTML = `
+          <div class="hdr">
+            <span>Probability of occurrence (%)</span>
+            <div>
+              <button type="button" class="btn-legend" data-act="compact" aria-pressed="false" title="Toggle compact">Compact</button>
+              <button type="button" class="btn-legend" data-act="collapse" aria-pressed="false" title="Hide/show">Hide</button>
+            </div>
+          </div>
+          <div class="body">
+            <div class="item"><span class="swatch" style="background:${colorBelow}"></span><span>&lt; 10</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[0]}"></span><span>10–20</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[1]}"></span><span>20–30</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[2]}"></span><span>30–40</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[3]}"></span><span>40–50</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[4]}"></span><span>50–60</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[5]}"></span><span>60–70</span></div>
+            <div class="item"><span class="swatch" style="background:${ramp[6]}"></span><span>70–80</span></div>
+            <div class="item"><span class="swatch" style="background:${colorAbove}"></span><span>&gt; 80</span></div>
+          </div>
+        `;
         L.DomEvent.disableClickPropagation(div);
         return div;
       };
       legend.addTo(map);
+
+      // === Wire up toggles ===
+      const lc = layersControl.getContainer();
+      const lg = legend.getContainer();
+
+      // 左上のボタン：Layers Compact
+      document.getElementById('btn-layers-size').addEventListener('click', (e) => {
+        const pressed = lc.classList.toggle('is-compact');
+        e.currentTarget.setAttribute('aria-pressed', String(pressed));
+        e.currentTarget.textContent = pressed ? 'Layers: Normal' : 'Layers: Compact';
+      });
+
+      // 左上のボタン：Legend Compact
+      document.getElementById('btn-legend-size').addEventListener('click', (e) => {
+        const pressed = lg.classList.toggle('is-compact');
+        e.currentTarget.setAttribute('aria-pressed', String(pressed));
+        e.currentTarget.textContent = pressed ? 'Legend: Normal' : 'Legend: Compact';
+      });
+
+      // 左上のボタン：Legend Hide/Show（本文完全折畳み）
+      document.getElementById('btn-legend-collapse').addEventListener('click', (e) => {
+        const pressed = lg.classList.toggle('is-collapsed');
+        e.currentTarget.setAttribute('aria-pressed', String(pressed));
+        e.currentTarget.textContent = pressed ? 'Legend: Show' : 'Legend: Hide';
+      });
+
+      // 凡例内のボタン（同機能）
+      lg.querySelectorAll('.btn-legend').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const act = e.currentTarget.getAttribute('data-act');
+          if (act === 'compact') {
+            const pressed = lg.classList.toggle('is-compact');
+            e.currentTarget.setAttribute('aria-pressed', String(pressed));
+            e.currentTarget.textContent = pressed ? 'Normal' : 'Compact';
+          } else if (act === 'collapse') {
+            const pressed = lg.classList.toggle('is-collapsed');
+            e.currentTarget.setAttribute('aria-pressed', String(pressed));
+            e.currentTarget.textContent = pressed ? 'Show' : 'Hide';
+          }
+        });
+      });
 
       gpkgPts.close();
     })().catch((err) => {
@@ -433,4 +586,3 @@
   </script>
 </body>
 </html>
-
