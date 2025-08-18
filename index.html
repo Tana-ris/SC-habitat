@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoTIFF（elevation.tif）をLeafletで重ねて表示</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; width: 100%; }
+    .control-box {
+      position: absolute; z-index: 1000; right: 12px; top: 12px;
+      background: rgba(255,255,255,0.95); box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      border-radius: 16px; padding: 12px 14px; max-width: 320px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+    .control-box h2 { font-size: 14px; margin: 4px 0 8px; }
+    .control-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+    .legend { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 10px; }
+    .legend-bar { height: 12px; border-radius: 999px; background: linear-gradient(to right, #440154, #21918c, #fde725); }
+    .loading { position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; background: #fff; z-index: 900; }
+    .spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid #ddd; border-top-color: #888; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { position:absolute; left: 50%; top: 16px; transform: translateX(-50%);
+      background: #ffefef; color: #a40000; padding: 10px 14px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); max-width: 90vw; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="map" aria-label="地図"></div>
+  <div class="loading" id="loading" role="status" aria-live="polite" aria-busy="true">
+    <div class="spinner" aria-hidden="true"></div>
+  </div>
+  <div class="control-box" id="controls" style="display:none">
+    <h2>標高レイヤ（elevation.tif）</h2>
+    <div class="control-row" style="margin-bottom:8px">
+      <label for="opacity" style="font-size:13px">不透明度</label>
+      <input id="opacity" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="不透明度スライダ">
+      <output id="opacityValue" style="font-variant-numeric: tabular-nums">0.70</output>
+    </div>
+    <div class="legend">
+      <div class="legend-bar" id="legendBar" title="カラースケール"></div>
+      <div style="display:grid; gap:2px; font-size:12px; text-align:right">
+        <div><span id="legendMin">min</span> m</div>
+        <div><span id="legendMax">max</span> m</div>
+      </div>
+    </div>
+    <div style="font-size:12px; color:#555; margin-top:8px">
+      投影は <code>EPSG:4326</code> または <code>EPSG:3857</code> を推奨。<br>
+      <strong>注意:</strong> 大きなGeoTIFFは読み込みに時間がかかります。
+    </div>
+  </div>
+
+  <!-- Leaflet本体 -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- GeoTIFF/GeoRaster 関連 -->
+  <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
+  <script src="https://unpkg.com/georaster/dist/georaster.min.js"></script>
+  <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
+  <!-- カラーマップ -->
+  <script src="https://unpkg.com/chroma-js@2.4.2/chroma.min.js"></script>
+
+  <script>
+    (async function () {
+      const loadingEl = document.getElementById('loading');
+      const controlsEl = document.getElementById('controls');
+      const opacityInput = document.getElementById('opacity');
+      const opacityValue = document.getElementById('opacityValue');
+      const legendMinEl = document.getElementById('legendMin');
+      const legendMaxEl = document.getElementById('legendMax');
+
+      // 1) ベースマップ
+      const map = L.map('map', { zoomControl: true, preferCanvas: true });
+      const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      map.setView([35.681236, 139.767125], 5); // 初期中心（東京駅付近）
+      L.control.scale().addTo(map);
+
+      try {
+        // 2) GeoTIFF を同一オリジン（/data/elevation.tif）から取得
+        const response = await fetch('data/Elevation.tif');
+        if (!response.ok) throw new Error('GeoTIFFの取得に失敗しました: ' + response.status + ' ' + response.statusText);
+        const arrayBuffer = await response.arrayBuffer();
+
+        // 3) 解析
+        const georaster = await parseGeoraster(arrayBuffer);
+        // --- DEM固有（滑川町）表示レンジを固定 ---
+        const DISPLAY_MIN = 5.60706e-05; // p2
+        const DISPLAY_MAX = 84.25;       // p98
+        const bandMin = georaster.mins && georaster.mins.length ? georaster.mins[0] : (georaster.min || 0);
+        const bandMax = georaster.maxs && georaster.maxs.length ? georaster.maxs[0] : (georaster.max || 3000);
+        const noData = georaster.noDataValue ?? georaster.nodata_value ?? null;
+
+        // カラースケール（viridis風）
+        const scale = chroma.scale(['#440154', '#31688e', '#35b779', '#fde725']).domain([DISPLAY_MIN, DISPLAY_MAX]);
+        legendMinEl.textContent = DISPLAY_MIN.toFixed(2);
+        legendMaxEl.textContent = DISPLAY_MAX.toFixed(2);
+
+        // 4) GeoRasterLayer を作成
+        const layer = new GeoRasterLayer({
+          georaster,
+          opacity: parseFloat(opacityInput.value),
+          resolution: 256, // 数値が大きいほど軽量（粗く）に描画
+          resampleMethod: 'bilinear',
+          pixelValuesToColorFn: values => {
+            const v = values[0];
+            if (v == null || Number.isNaN(v)) return null;
+            // NoData (float32の最小値など) を厳格に除外
+            const noData = georaster.noDataValue ?? georaster.nodata_value ?? null;
+            if (noData != null && (v === noData || v < -1e20)) return null;
+            // 表示レンジにクランプ
+            const vv = Math.max(DISPLAY_MIN, Math.min(DISPLAY_MAX, v));
+            return scale(vv).hex();
+          }
+        });
+
+        layer.addTo(map);
+        // レイヤの範囲にフィット
+        const bounds = layer.getBounds();
+        if (bounds && bounds.isValid()) map.fitBounds(bounds.pad(0.05));
+
+        // コントロールのイベント
+        opacityInput.addEventListener('input', () => {
+          const v = parseFloat(opacityInput.value);
+          layer.setOpacity(v);
+          opacityValue.textContent = v.toFixed(2);
+        });
+
+        // UI表示切替
+        loadingEl.style.display = 'none';
+        controlsEl.style.display = 'block';
+
+      } catch (err) {
+        loadingEl.style.display = 'none';
+        const div = document.createElement('div');
+        div.className = 'error';
+        div.textContent = '読み込みエラー: ' + (err && err.message ? err.message : err);
+        document.body.appendChild(div);
+        console.error(err);
+      }
+    })();
+  </script>
+</body>
+</html>
