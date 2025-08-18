@@ -70,17 +70,37 @@ const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
       const globalBounds = L.latLngBounds([]);
 
       // === クリック時に ID を使って PNG を表示する（固定拡張子 .png） ===
-      function buildPngPopupHtml(id, url) {
-        return `<div class="wf-pop"><img src="${url}" alt="waterfall_ID${id}_RF" style="max-width:300px;max-height:300px;display:block" /><div style="margin-top:4px;"><a target="_blank" href="${url}">新しいタブで開く</a></div></div>`;
+      function buildPngPopupHtml(id, url, probText) {
+        const label = (probText != null && probText !== '') ? `<div style="position:absolute;top:8px;left:8px;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:14px;">${probText}</div>` : '';
+        return `<div class="wf-pop" style="position:relative;display:inline-block;">
+                  ${label}
+                  <img src="${url}" alt="waterfall_ID${id}_RF" style="max-width:600px;max-height:600px;display:block" />
+                  <div style="margin-top:6px;"><a target="_blank" href="${url}">新しいタブで開く</a></div>
+                </div>`;
+      }" alt="waterfall_ID${id}_RF" style="max-width:300px;max-height:300px;display:block" /><div style="margin-top:4px;"><a target="_blank" href="${url}">新しいタブで開く</a></div></div>`;
       }
       async function handleWaterfallClick(feature, ev) {
         const props = (feature && feature.properties) || {};
         const id = props.ID ?? props.id ?? props.Id;
-        const popup = L.popup({ maxWidth: 420 }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
+        // 「Probablity」列（表記揺れにも軽く対応）
+        const probRaw = props.Probablity ?? props.probablity ?? props.Probability ?? props.probability;
+        const probText = (probRaw != null) ? `Probablity: ${probRaw}` : '';
+        const popup = L.popup({ maxWidth: 720 }).setLatLng(ev.latlng).setContent('読み込み中...').openOn(map);
         if (id == null) {
           popup.setContent('このポイントに ID 属性がありません。');
           return;
         }
+        const url = `data/waterfall/waterfall_ID${id}_RF.png`;
+        // 画像の存在確認とロード（HEADは使わず、Imageオブジェクトで確認）
+        const img = new Image();
+        img.onload = () => {
+          popup.setContent(buildPngPopupHtml(id, url, probText));
+        };
+        img.onerror = () => {
+          popup.setContent(`ファイルが見つかりません：<code>${url}</code>`);
+        };
+        img.src = url;
+      }
         const url = `data/waterfall/waterfall_ID${id}_RF.png`;
         // 画像の存在確認とロード（HEADは使わず、Imageオブジェクトで確認）
         const img = new Image();
