@@ -3,259 +3,117 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GeoTIFF（elevation.tif）をLeafletで重ねて表示</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <title>Probability_of_occurrence.gpkg を地図に重ねて可視化</title>
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- GeoPackage core library（ブラウザでGPKGを読むために必要）-->
+  <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
+  <!-- Leaflet用のGeoPackageプラグイン（URLから直接レイヤーを読み込む）-->
+  <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
+
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
-    .control-box {
-      position: absolute; z-index: 1000; right: 12px; top: 12px;
-      background: rgba(255,255,255,0.95); box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      border-radius: 16px; padding: 12px 14px; max-width: 320px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
-    }
-    .control-box h2 { font-size: 14px; margin: 4px 0 8px; }
-    .control-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
-    .legend { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 10px; }
-    .legend-bar { height: 12px; border-radius: 999px; background: linear-gradient(to right, #440154, #21918c, #fde725); }
-    .loading { position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; background: #fff; z-index: 900; }
-    .spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid #ddd; border-top-color: #888; animation: spin 0.9s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error { position:absolute; left: 50%; top: 16px; transform: translateX(-50%);
-      background: #ffefef; color: #a40000; padding: 10px 14px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); max-width: 90vw; font-size: 14px; }
+    .leaflet-control-layers-expanded { max-height: 300px; overflow:auto; }
+    .credits { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.9); padding: 6px 8px; border-radius: 8px; font: 12px/1.2 system-ui, sans-serif; }
   </style>
 </head>
 <body>
-  <div id="map" aria-label="地図"></div>
-  <div class="loading" id="loading" role="status" aria-live="polite" aria-busy="true">
-    <div class="spinner" aria-hidden="true"></div>
-  </div>
-  <div class="control-box" id="controls" style="display:none">
-    <h2>標高レイヤ（elevation.tif）</h2>
-    <div class="control-row" style="margin-bottom:8px">
-      <label for="opacity" style="font-size:13px">不透明度</label>
-      <input id="opacity" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="不透明度スライダ">
-      <output id="opacityValue" style="font-variant-numeric: tabular-nums">0.70</output>
-    </div>
-    <div class="legend">
-      <div class="legend-bar" id="legendBar" title="カラースケール"></div>
-      <div style="display:grid; gap:2px; font-size:12px; text-align:right">
-        <div><span id="legendMin">min</span> m</div>
-        <div><span id="legendMax">max</span> m</div>
-      </div>
-    </div>
-    <div style="font-size:12px; color:#555; margin-top:8px">
-      投影は <code>EPSG:4326</code> または <code>EPSG:3857</code> を推奨。<br>
-      <strong>注意:</strong> 大きなGeoTIFFは読み込みに時間がかかります。
-    </div>
-  </div>
-
-  <!-- Leaflet本体 -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <!-- GeoTIFF/GeoRaster 関連 -->
-  <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
-  <script src="https://unpkg.com/georaster/dist/georaster.min.js"></script>
-  <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
-  <!-- カラーマップ -->
-  <script src="https://unpkg.com/chroma-js@2.4.2/chroma.min.js"></script>
-  <!-- GeoBlaze（parse のフォールバック用） -->
-  <script src="https://unpkg.com/geoblaze/dist/geoblaze.min.js"></script>
+  <div id="map"></div>
+  <div class="credits">データ: <code>data/Probability_of_occurrence.gpkg</code></div>
 
   <script>
-    // ---- グローバル診断とエラー可視化 ----
-    (function () {
-      const DEBUG = !new URLSearchParams(location.search).has('nodebug');
-      const clog = (...a) => { if (DEBUG) console.log('[DEM]', ...a); };
-      const cinfo = (...a) => { if (DEBUG) console.info('[DEM]', ...a); };
-      const cwarn = (...a) => { if (DEBUG) console.warn('[DEM]', ...a); };
-      const cerror = (...a) => { console.error('[DEM]', ...a); };
-      const ensureErrorBox = () => {
-        let box = document.getElementById('errorBox');
-        if (!box) {
-          box = document.createElement('div');
-          box.id = 'errorBox';
-          box.className = 'error';
-          document.body.appendChild(box);
-        }
-        return box;
-      };
-      const showError = (title, detail) => {
-        const box = ensureErrorBox();
-        box.innerHTML = `<strong>${title}</strong>` + (detail ? `<br><small style="white-space:pre-wrap">${detail}</small>` : '');
-        box.style.display = 'block';
-      };
+    (async function () {
+      // ===== 基本設定 =====
+      const gpkgUrl = 'data/Probability_of_occurrence.gpkg'; // リポジトリの相対パス
 
-      window.addEventListener('error', (e) => {
-        const msg = `${e.message || 'Error'}\n@ ${e.filename || ''}:${e.lineno || ''}:${e.colno || ''}`;
-        showError('未捕捉エラー', msg);
-        cerror('window.error', e, msg);
-        console.trace('[DEM] trace @window.error');
-      });
-      window.addEventListener('unhandledrejection', (e) => {
-        const reason = e && e.reason ? (e.reason.stack || e.reason.message || String(e.reason)) : 'Unhandled Promise Rejection';
-        showError('未処理のPromise拒否', reason);
-        cerror('unhandledrejection', e, reason);
-        console.trace('[DEM] trace @unhandledrejection');
-      });
+      // GeoPackageライブラリに、WASM(sql-wasm.wasm)の取得先CDNを明示
+      const { GeoPackageManager, setSqljsWasmLocateFile } = window.GeoPackage;
+      setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // 依存関係の存在チェックを表示（デバッグ用）
-      const depStatus = () => ({
-        leaflet: !!window.L,
-        geotiff: typeof window.GeoTIFF !== 'undefined' || typeof window.geotiff !== 'undefined',
-        georaster_parse: typeof window.parseGeoraster === 'function',
-        georaster_layer: typeof window.GeoRasterLayer !== 'undefined',
-        chroma: !!window.chroma,
-        geoblaze: !!window.geoblaze
-      });
-      const renderStatus = () => {
-        const s = depStatus();
-        const lines = Object.entries(s).map(([k,v]) => `${v ? '✅' : '⛔'} ${k}`).join('  ');
-        console.log('[deps]', s);
-        if (DEBUG && console.table) console.table(s);
-        let panel = document.getElementById('depStatus');
-        if (!panel) {
-          panel = document.createElement('div');
-          panel.id = 'depStatus';
-          panel.style.position = 'absolute';
-          panel.style.left = '12px';
-          panel.style.bottom = '12px';
-          panel.style.background = 'rgba(255,255,255,0.9)';
-          panel.style.padding = '6px 8px';
-          panel.style.borderRadius = '10px';
-          panel.style.fontSize = '12px';
-          panel.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
-          document.body.appendChild(panel);
-        }
-        panel.textContent = '依存関係: ' + lines;
-      };
-      window.addEventListener('load', renderStatus);
-      setTimeout(renderStatus, 1500);
+      // ===== 地図初期化 =====
+      const map = L.map('map', { center: [35.0, 135.0], zoom: 5 });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      const layersControl = L.control.layers({}, {}).addTo(map);
 
-      // ---- メイン処理 ----
-      (async function () {
-        if (DEBUG) console.groupCollapsed('%cDEM ローダー開始','color:#555');
-        console.time('[DEM] total');
-        const loadingEl = document.getElementById('loading');
-        const controlsEl = document.getElementById('controls');
-        const opacityInput = document.getElementById('opacity');
-        const opacityValue = document.getElementById('opacityValue');
-        const legendMinEl = document.getElementById('legendMin');
-        const legendMaxEl = document.getElementById('legendMax');
+      // ===== GPKG の中のフィーチャテーブル名を列挙 =====
+      const resp = await fetch(gpkgUrl);
+      if (!resp.ok) throw new Error(`GPKGの取得に失敗しました: ${resp.status} ${resp.statusText}`);
+      const arrayBuf = await resp.arrayBuffer();
+      const gpkg = await GeoPackageManager.open(new Uint8Array(arrayBuf));
+      const featureTables = gpkg.getFeatureTables();
+      if (!featureTables || featureTables.length === 0) throw new Error('このGeoPackageにフィーチャレイヤーが見つかりません');
 
-        // 1) ベースマップ
-        const map = L.map('map', { zoomControl: true, preferCanvas: true });
-        cinfo('Leaflet map 初期化');
-        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-        cinfo('OSM タイルレイヤ追加');
-        map.setView([35.681236, 139.767125], 10);
-        L.control.scale().addTo(map);
+      // テーブルごとにLeafletレイヤーを構築
+      const addedLayers = [];
+      const globalBounds = L.latLngBounds([]);
 
-        try {
-          // 依存の確認とフォールバック（geoblaze）
-          const parse = window.parseGeoraster || (window.geoblaze && window.geoblaze.parse);
-          const parserName = window.parseGeoraster ? 'parseGeoraster' : (window.geoblaze && window.geoblaze.parse ? 'geoblaze.parse' : 'none');
-          cinfo('使用予定のパーサ:', parserName);
-          if (!parse) {
-            throw new ReferenceError('GeoRasterパーサ（parseGeoraster/ geoblaze.parse）が見つかりません。CDN読み込み失敗の可能性があります。');
-          }
-
-          // 2) GeoTIFF を取得（大文字小文字に注意）
-          const url = 'data/Elevation.tif';
-          console.time('[DEM] fetch tiff');
-          const response = await fetch(url);
-          if (!response.ok) throw new Error('GeoTIFFの取得に失敗: ' + response.status + ' ' + response.statusText + ' @ ' + url);
-          const headerDump = {}; response.headers.forEach((v,k)=> headerDump[k]=v);
-          cinfo('fetch 応答', {status: response.status, statusText: response.statusText, headers: headerDump});
-          const arrayBuffer = await response.arrayBuffer();
-          console.timeEnd('[DEM] fetch tiff');
-          cinfo('取得サイズ(byteLength):', arrayBuffer.byteLength);
-
-          // 3) 解析（parse は georaster か geoblaze）
-          console.time('[DEM] parse georaster');
-          const georaster = await parse(arrayBuffer);
-          console.timeEnd('[DEM] parse georaster');
-          cinfo('パース完了: ', parserName);
-          try {
-            const stats = {
-              width: georaster.width,
-              height: georaster.height,
-              projection: georaster.projection || (georaster.source && georaster.source.projection) || 'unknown',
-              noDataValue: georaster.noDataValue ?? georaster.nodata_value ?? null,
-              mins: georaster.mins || georaster.min,
-              maxs: georaster.maxs || georaster.max
-            };
-            cinfo('georaster 概要', stats);
-          } catch(_) { cwarn('georaster 概要の収集に失敗'); }
-
-          // --- DEM 固有レンジ（滑川町）---
-          const DISPLAY_MIN = 5.60706e-05; // p2
-          const DISPLAY_MAX = 84.25;       // p98
-
-          // カラースケール
-          const scale = chroma.scale(['#440154', '#31688e', '#35b779', '#fde725']).domain([DISPLAY_MIN, DISPLAY_MAX]);
-          legendMinEl.textContent = DISPLAY_MIN.toFixed(2);
-          legendMaxEl.textContent = DISPLAY_MAX.toFixed(2);
-
-          // 4) GeoRasterLayer を作成（NoData 除外 + クランプ）
-          if (typeof window.GeoRasterLayer === 'undefined') {
-            throw new ReferenceError('GeoRasterLayer が見つかりません（georaster-layer-for-leafletの読み込みを確認）');
-          }
-          console.time('[DEM] layer add');
-          const layer = new GeoRasterLayer({
-            georaster,
-            opacity: parseFloat(opacityInput.value),
-            resolution: 256,
-            resampleMethod: 'bilinear',
-            pixelValuesToColorFn: values => {
-              const v = values[0];
-              if (v == null || Number.isNaN(v)) return null;
-              const noData = georaster.noDataValue ?? georaster.nodata_value ?? null;
-              if (noData != null && (v === noData || v < -1e20)) return null;
-              const vv = Math.max(DISPLAY_MIN, Math.min(DISPLAY_MAX, v));
-              return scale(vv).hex();
+      for (const tableName of featureTables) {
+        // 表示用レイヤ（leaflet-geopackage）: L.GeoJSON互換なのでスタイルやポップアップを設定可能
+        const layer = L.geoPackageFeatureLayer([], {
+          geoPackageUrl: gpkgUrl,
+          layerName: tableName,
+          // CircleMarkerでポイントを描画（半径や色は必要に応じて調整）
+          pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+            radius: 5,
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.7
+          }),
+          onEachFeature: (feature, lyr) => {
+            if (feature && feature.properties) {
+              const rows = Object.entries(feature.properties)
+                .map(([k, v]) => `<tr><th style="text-align:left; padding-right:6px;">${k}</th><td>${v}</td></tr>`)
+                .join('');
+              lyr.bindPopup(`<table>${rows}</table>`);
             }
-          });
-
-          layer.addTo(map);
-          console.timeEnd('[DEM] layer add');
-          cinfo('レイヤ追加完了');
-          const bounds = layer.getBounds();
-          if (bounds && bounds.isValid()) {
-            cinfo('レイヤ境界(bbox):', bounds.toBBoxString());
-            map.fitBounds(bounds.pad(0.05));
-            cinfo('fitBounds 実行');
-          } else {
-            cwarn('bounds が無効、fitBounds スキップ');
           }
+        }).addTo(map);
 
-          // コントロールのイベント
-          opacityInput.addEventListener('input', () => {
-            const v = parseFloat(opacityInput.value);
-            layer.setOpacity(v);
-            opacityValue.textContent = v.toFixed(2);
-          });
+        layersControl.addOverlay(layer, tableName);
+        addedLayers.push(layer);
 
-          loadingEl.style.display = 'none';
-          controlsEl.style.display = 'block';
-          cinfo('UI: ローディング非表示 / コントロール表示');
-          console.timeEnd('[DEM] total');
-          if (DEBUG) console.groupEnd();
-
-        } catch (err) {
-          loadingEl.style.display = 'none';
-          const msg = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);
-          const hint = `\nヒント: CDN がブロックされていないか、スクリプトURLが有効か、ネットワークエラーがないか確認してください。`;
-          const detail = msg + hint;
-          const box = document.getElementById('errorBox') || (function(){ const b=document.createElement('div'); b.id='errorBox'; b.className='error'; document.body.appendChild(b); return b; })();
-          box.innerHTML = `<strong>読み込みエラー</strong><br><small style="white-space:pre-wrap">${detail}</small>`;
-          box.style.display = 'block';
-          cerror('例外発生', err);
-          console.trace('[DEM] trace @catch');
-          if (DEBUG) console.groupEnd();
+        // ついでに全体の表示範囲を計算（GPKGからGeoJSONをストリーミングして座標だけ拾う）
+        const rs = gpkg.queryForGeoJSONFeatures(tableName);
+        for (const f of rs) {
+          addCoordsToBounds(f.geometry && f.geometry.coordinates, globalBounds);
         }
-      })();
-    })();
+        rs.close();
+      }
+
+      if (globalBounds.isValid()) {
+        map.fitBounds(globalBounds.pad(0.1));
+      }
+
+      gpkg.close();
+
+      // 再帰的に座標配列からBoundsを拡張
+      function addCoordsToBounds(coords, bounds) {
+        if (!coords) return;
+        if (typeof coords[0] === 'number') {
+          // [lng, lat]
+          bounds.extend([coords[1], coords[0]]);
+        } else {
+          for (const c of coords) addCoordsToBounds(c, bounds);
+        }
+      }
+    })().catch((err) => {
+      console.error(err);
+      alert('読み込み中にエラーが発生しました。コンソールを確認してください。\n' + err.message);
+    });
   </script>
 </body>
 </html>
