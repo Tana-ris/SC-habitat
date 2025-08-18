@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>GeoTIFF Viewer (GitHub Pages / root)</title>
-<link rel="stylesheet" href="./vendor/leaflet.css" />
+<title>GeoTIFF Viewer (GitHub Pages root)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body, #map { height: 100%; margin: 0; }
   .panel {
@@ -12,11 +12,12 @@
     background: #fff; padding: 10px; border-radius: 12px;
     box-shadow: 0 6px 20px rgba(0,0,0,.15);
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 520px;
+    max-width: 560px;
   }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+  .row label { min-width:72px; }
   .mono { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
-  .small { font-size: 12px; color: #666; }
+  .small { font-size:12px; color:#666; }
 </style>
 </head>
 <body>
@@ -24,7 +25,9 @@
 
 <div class="panel">
   <div class="row">
-    <strong>ファイル:</strong> <span>data/Elevation.tif</span>
+    <label>ファイル</label>
+    <select id="file"></select>
+    <button id="reload">読み込む</button>
     <span id="status" class="mono small"></span>
   </div>
   <div class="row">
@@ -38,8 +41,8 @@
       <option>magma</option>
       <option>turbo</option>
     </select>
-    <label>min</label><input id="vmin" type="number" step="any" value="0" style="width:90px">
-    <label>max</label><input id="vmax" type="number" step="any" value="85" style="width:90px">
+    <label>min</label><input id="vmin" type="number" step="any" placeholder="auto" style="width:90px">
+    <label>max</label><input id="vmax" type="number" step="any" placeholder="auto" style="width:90px">
     <label>不透明度</label><input id="opacity" type="range" min="0" max="1" step="0.05" value="0.9">
     <button id="apply">適用</button>
   </div>
@@ -49,132 +52,173 @@
   </details>
 </div>
 
-<!-- すべてローカル参照（CDN不要） -->
-<script src="./vendor/leaflet.js"></script>
-<script src="./vendor/georaster.browser.min.js"></script>
-<script src="./vendor/georaster-layer-for-leaflet.min.js"></script>
+<!-- Leaflet（JS） -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-  // ライブラリ存在チェック
-  if (typeof L === "undefined") alert("Leaflet が読み込めていません（vendor/leaflet.js を確認）");
-  if (typeof parseGeoraster === "undefined") alert("georaster が読み込めていません（vendor/georaster.browser.min.js を確認）");
-  if (typeof GeoRasterLayer === "undefined") alert("georaster-layer が読み込めていません（vendor/georaster-layer-for-leaflet.min.js を確認）");
-
-  const statusEl = document.getElementById('status');
-  const metaEl = document.getElementById('meta');
-  function setStatus(msg, isError=false){ statusEl.textContent = msg; statusEl.style.color = isError ? '#c00' : '#666'; }
-
-  // 地図（OSMタイルはオンライン前提。もし閲覧環境がオフラインならこの行を消してもOKです）
-  const map = L.map('map').setView([36.070305555, 139.354027778], 12);
-  try {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { maxZoom: 19, attribution:'&copy; OpenStreetMap' }).addTo(map);
-  } catch(e) {}
-
-  // ▼ 読み込む GeoTIFF（ルート配信なので ./data/ でOK）
-  const url = './data/Elevation.tif';
-
-  // カラーマップ（簡易）
-  function lerp(a,b,t){ return a+(b-a)*t; }
-  function toHex(r,g,b){ return '#'+[r,g,b].map(v=>('0'+Math.round(v).toString(16)).slice(-2)).join(''); }
-  function stops(name){
-    const lut = {
-      terrain: [
-        {t:0.00, rgb:[ 50, 60,150]}, {t:0.25, rgb:[ 70,120,180]},
-        {t:0.50, rgb:[ 90,160, 60]}, {t:0.75, rgb:[150,120, 60]},
-        {t:1.00, rgb:[240,240,240]}
-      ],
-      greys: [{t:0,rgb:[0,0,0]},{t:1,rgb:[255,255,255]}],
-      viridis: [{t:0,rgb:[68,1,84]},{t:0.33,rgb:[59,82,139]},{t:0.66,rgb:[33,144,141]},{t:1,rgb:[253,231,37]}],
-      inferno: [{t:0,rgb:[0,0,4]},{t:0.33,rgb:[87,15,109]},{t:0.66,rgb:[187,55,84]},{t:1,rgb:[252,255,164]}],
-      plasma: [{t:0,rgb:[13,8,135]},{t:0.33,rgb:[126,3,168]},{t:0.66,rgb:[203,71,119]},{t:1,rgb:[240,249,33]}],
-      magma: [{t:0,rgb:[0,0,3]},{t:0.33,rgb:[88,24,110]},{t:0.66,rgb:[189,55,75]},{t:1,rgb:[251,252,191]}],
-      turbo: [{t:0,rgb:[48,18,59]},{t:0.25,rgb:[37,132,198]},{t:0.5,rgb:[65,180,66]},{t:0.75,rgb:[241,196,0]},{t:1,rgb:[220,24,32]}],
-    };
-    return lut[name] || lut.terrain;
+  // CDNフォールバック付きローダ
+  function loadScript(srcs, cb){
+    (function next(i){
+      if(i>=srcs.length) return cb(new Error("all sources failed"));
+      const s=document.createElement("script");
+      s.src=srcs[i];
+      s.onload=()=>cb(null, srcs[i]);
+      s.onerror=()=>next(i+1);
+      document.head.appendChild(s);
+    })(0);
   }
-  function makeColorFn(min, max, nodata, name){
-    const s = stops(name);
-    return function(values){
-      const v = Array.isArray(values) ? values[0] : values;
-      if (v==null || isNaN(v) || (nodata!=null && v===nodata)) return null;
-      const tt = Math.max(0, Math.min(1, (v - min) / (max - min)));
-      let s0=s[0], s1=s[s.length-1];
-      for (let i=1;i<s.length;i++){ if (tt<=s[i].t){ s0=s[i-1]; s1=s[i]; break; } }
-      const t=(tt - s0.t) / Math.max(1e-6, (s1.t - s0.t));
-      const r=lerp(s0.rgb[0], s1.rgb[0], t), g=lerp(s0.rgb[1], s1.rgb[1], t), b=lerp(s0.rgb[2], s1.rgb[2], t);
-      return toHex(r,g,b);
-    };
+  function setStatus(msg, err=false){
+    const el=document.getElementById('status');
+    el.textContent=msg||'';
+    el.style.color=err?'#c00':'#666';
   }
+</script>
 
-  let layer=null, currentRaster=null;
-
-  function ui(){ // UI値を取得
-    const vmin = document.getElementById('vmin').value;
-    const vmax = document.getElementById('vmax').value;
-    return {
-      cmap: document.getElementById('cmap').value,
-      opacity: parseFloat(document.getElementById('opacity').value),
-      vmin: vmin===''? null : parseFloat(vmin),
-      vmax: vmax===''? null : parseFloat(vmax)
-    };
-  }
-
-  async function loadRaster(){
-    setStatus('読み込み中… '+url);
-    try{
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      const buf = await res.arrayBuffer();
-      const raster = await parseGeoraster(buf);
-      currentRaster = raster;
-
-      // メタ表示
-      metaEl.textContent = JSON.stringify({
-        width: raster.width, height: raster.height,
-        projection: raster.projection,
-        noDataValue: raster.noDataValue,
-        mins: raster.mins, maxs: raster.maxs
-      }, null, 2);
-
-      const u = ui();
-      const min = (u.vmin!=null) ? u.vmin : (raster.mins ? raster.mins[0] : 0);
-      const max = (u.vmax!=null) ? u.vmax : (raster.maxs ? raster.maxs[0] : 1000);
-      const nodata = raster.noDataValue;
-
-      if (layer) { map.removeLayer(layer); layer=null; }
-      layer = new GeoRasterLayer({
-        georaster: raster,
-        resolution: 256,
-        resampleMethod: 'bilinear',
-        pixelValuesToColorFn: makeColorFn(min, max, nodata, u.cmap || 'terrain'),
-        opacity: u.opacity ?? 0.9
-      });
-      layer.on('load', ()=>{
-        const b = layer.getBounds();
-        if (b && b.isValid()) map.fitBounds(b, { padding:[20,20] });
-        setStatus('描画完了');
-      });
-      layer.addTo(map);
-    }catch(e){
-      console.error(e);
-      setStatus('読み込み失敗：'+e.message, true);
-      alert(`読み込み失敗：${e.message}\n- data/Elevation.tif が存在するか\n- Git LFS を使っていないか（Pagesでは配信できません）\n- 100MB超過していないか\n- 必要なら COG/クリップ/解像度ダウンを検討`);
-    }
-  }
-
-  document.getElementById('apply').addEventListener('click', ()=>{
-    if (!currentRaster || !layer) return;
-    const u = ui();
-    const min = (u.vmin!=null) ? u.vmin : (currentRaster.mins ? currentRaster.mins[0] : 0);
-    const max = (u.vmax!=null) ? u.vmax : (currentRaster.maxs ? currentRaster.maxs[0] : 1000);
-    layer.setOpacity(u.opacity ?? 0.9);
-    layer.options.pixelValuesToColorFn = makeColorFn(min, max, currentRaster.noDataValue, u.cmap || 'terrain');
-    if (layer._update) layer._update(); else if (layer.redraw) layer.redraw();
+<!-- georaster & layer を jsDelivr→unpkg の順で試す -->
+<script>
+  loadScript([
+    "https://cdn.jsdelivr.net/npm/georaster@1.6.2/dist/georaster.browser.min.js",
+    "https://unpkg.com/georaster@1.6.2/dist/georaster.browser.min.js"
+  ], function(err1){
+    if(err1){ setStatus("georasterの取得に失敗（CDN到達不可）", true); return; }
+    loadScript([
+      "https://cdn.jsdelivr.net/npm/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js",
+      "https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"
+    ], function(err2){
+      if(err2){ setStatus("georaster-layerの取得に失敗（CDN到達不可）", true); return; }
+      startApp();
+    });
   });
 
-  // 初回ロード
-  loadRaster();
+  // ------- アプリ本体 -------
+  async function startApp(){
+    if(typeof L==='undefined' || typeof parseGeoraster==='undefined' || typeof GeoRasterLayer==='undefined'){
+      setStatus("ライブラリ初期化に失敗", true); return;
+    }
+
+    // マップ
+    const map = L.map('map').setView([36.07, 139.354], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+
+    const sel = document.getElementById('file');
+    const metaEl = document.getElementById('meta');
+
+    // data/list.json があれば優先的に使う（["a.tif","b.tif"]）
+    // なければ FALLBACK_FILES を使う
+    const FALLBACK_FILES = ["Elevation.tif"]; // ここに追加してもOK
+    let files = FALLBACK_FILES.slice();
+    try{
+      const r = await fetch('./data/list.json', {cache:'no-store'});
+      if(r.ok){
+        const arr = await r.json();
+        if(Array.isArray(arr) && arr.length){ files = arr; }
+      }
+    }catch(_){}
+
+    // セレクトを構築
+    sel.innerHTML='';
+    files.forEach(f => { const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o); });
+
+    let layer=null, currentRaster=null;
+
+    function lerp(a,b,t){ return a+(b-a)*t; }
+    function toHex(r,g,b){ return '#'+[r,g,b].map(v=>('0'+Math.round(v).toString(16)).slice(-2)).join(''); }
+    function stops(name){
+      const lut={
+        terrain:[{t:0,rgb:[50,60,150]},{t:0.25,rgb:[70,120,180]},{t:0.5,rgb:[90,160,60]},{t:0.75,rgb:[150,120,60]},{t:1,rgb:[240,240,240]}],
+        greys:[{t:0,rgb:[0,0,0]},{t:1,rgb:[255,255,255]}],
+        viridis:[{t:0,rgb:[68,1,84]},{t:0.33,rgb:[59,82,139]},{t:0.66,rgb:[33,144,141]},{t:1,rgb:[253,231,37]}],
+        inferno:[{t:0,rgb:[0,0,4]},{t:0.33,rgb:[87,15,109]},{t:0.66,rgb:[187,55,84]},{t:1,rgb:[252,255,164]}],
+        plasma:[{t:0,rgb:[13,8,135]},{t:0.33,rgb:[126,3,168]},{t:0.66,rgb:[203,71,119]},{t:1,rgb:[240,249,33]}],
+        magma:[{t:0,rgb:[0,0,3]},{t:0.33,rgb:[88,24,110]},{t:0.66,rgb:[189,55,75]},{t:1,rgb:[251,252,191]}],
+        turbo:[{t:0,rgb:[48,18,59]},{t:0.25,rgb:[37,132,198]},{t:0.5,rgb:[65,180,66]},{t:0.75,rgb:[241,196,0]},{t:1,rgb:[220,24,32]}],
+      };
+      return lut[name] || lut.terrain;
+    }
+    function makeColorFn(min, max, nodata, name){
+      const s = stops(name);
+      return (values)=>{
+        const v = Array.isArray(values) ? values[0] : values;
+        if(v==null||isNaN(v)||(nodata!=null&&v===nodata)) return null;
+        const tt = Math.max(0, Math.min(1, (v-min)/(max-min)));
+        let s0=s[0], s1=s[s.length-1];
+        for(let i=1;i<s.length;i++){ if(tt<=s[i].t){ s0=s[i-1]; s1=s[i]; break; } }
+        const t = (tt-s0.t)/Math.max(1e-6,(s1.t-s0.t));
+        const r=lerp(s0.rgb[0],s1.rgb[0],t), g=lerp(s0.rgb[1],s1.rgb[1],t), b=lerp(s0.rgb[2],s1.rgb[2],t);
+        return toHex(r,g,b);
+      };
+    }
+    function ui(){
+      const vmin=document.getElementById('vmin').value;
+      const vmax=document.getElementById('vmax').value;
+      return {
+        cmap: document.getElementById('cmap').value,
+        opacity: parseFloat(document.getElementById('opacity').value),
+        vmin: vmin===''? null : parseFloat(vmin),
+        vmax: vmax===''? null : parseFloat(vmax)
+      };
+    }
+
+    async function loadFile(name){
+      const url = `./data/${name}`;
+      setStatus(`読み込み中… ${url}`);
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const buf = await res.arrayBuffer();
+        const raster = await parseGeoraster(buf);
+        currentRaster = raster;
+
+        // メタ情報表示
+        metaEl.textContent = JSON.stringify({
+          width: raster.width, height: raster.height,
+          projection: raster.projection, noDataValue: raster.noDataValue,
+          mins: raster.mins, maxs: raster.maxs
+        }, null, 2);
+
+        const u = ui();
+        const min = (u.vmin!=null) ? u.vmin : (raster.mins ? raster.mins[0] : 0);
+        const max = (u.vmax!=null) ? u.vmax : (raster.maxs ? raster.maxs[0] : 1000);
+        const nodata = raster.noDataValue;
+
+        if(layer){ map.removeLayer(layer); layer=null; }
+        layer = new GeoRasterLayer({
+          georaster: raster,
+          resolution: 256,
+          resampleMethod: 'bilinear',
+          pixelValuesToColorFn: makeColorFn(min, max, nodata, u.cmap || 'terrain'),
+          opacity: u.opacity ?? 0.9
+        });
+        layer.on('load', ()=>{
+          const b = layer.getBounds();
+          if(b && b.isValid()) map.fitBounds(b,{padding:[20,20]});
+          setStatus('描画完了');
+        });
+        layer.addTo(map);
+      }catch(e){
+        console.error(e);
+        setStatus('読み込み失敗：'+e.message, true);
+        alert(`読み込み失敗：${e.message}\n- data/${name} が存在するか\n- ファイルサイズが大きすぎないか（100MB未満）\n- LFS を使っていないか\n- 必要なら COG/クリップで軽量化`);
+      }
+    }
+
+    document.getElementById('reload').addEventListener('click', ()=> loadFile(sel.value));
+    document.getElementById('apply').addEventListener('click', ()=>{
+      if(!currentRaster || !layer) return;
+      const u = ui();
+      const min = (u.vmin!=null) ? u.vmin : (currentRaster.mins ? currentRaster.mins[0] : 0);
+      const max = (u.vmax!=null) ? u.vmax : (currentRaster.maxs ? currentRaster.maxs[0] : 1000);
+      layer.setOpacity(u.opacity ?? 0.9);
+      layer.options.pixelValuesToColorFn = makeColorFn(min, max, currentRaster.noDataValue, u.cmap || 'terrain');
+      if(layer._update) layer._update(); else if(layer.redraw) layer.redraw();
+    });
+
+    // 初期化：ファイル一覧セット & 最初の1枚を表示
+    sel.innerHTML='';
+    files.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o); });
+    if(files.length) loadFile(files[0]);
+  }
 </script>
 </body>
 </html>
