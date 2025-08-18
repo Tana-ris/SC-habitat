@@ -23,8 +23,10 @@
   <!-- Leaflet GeoPackage plugin (load layers from URL) -->
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
-  <!-- GeoTIFF を Leaflet で描画（ブラウザ用ビルド） -->
-  <script src="https://cdn.jsdelivr.net/npm/georaster-layer-for-leaflet@3.10.0/georaster-layer-for-leaflet.browserify.min.js"></script>
+  <!-- GeoTIFF / GeoRaster / GeoRasterLayer (new, recommended order) -->
+  <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
+  <script src="https://unpkg.com/georaster/dist/georaster.browser.min.js"></script>
+  <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -48,39 +50,38 @@
 
     /* ===== Legend (bottom-right) bigger ===== */
     .wf-legend.leaflet-control {
-      /* 調整しやすいカスタムプロパティ */
       --legend-font-size: clamp(15px, 1.8vw, 20px);
       --legend-line-height: 1.45;
       --legend-swatch: clamp(18px, 2vw, 24px);
       --legend-gap: clamp(8px, 1vw, 12px);
     
       background: rgba(255,255,255,.96);
-      padding: 14px 16px;            /* 10px→14px/16px */
-      border-radius: 12px;           /* 10px→12px */
+      padding: 14px 16px;
+      border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0,0,0,.14);
       font: var(--legend-font-size)/var(--legend-line-height) system-ui, sans-serif;
-      font-variant-numeric: tabular-nums; /* 10–20 などの桁をきれいに */
-      min-width: 210px;              /* 折返し防止の目安 */
+      font-variant-numeric: tabular-nums;
+      min-width: 210px;
     }
     .wf-legend h4 {
-      margin: 0 0 10px;              /* 8px→10px */
+      margin: 0 0 10px;
       font-size: calc(var(--legend-font-size) * 1.05);
       font-weight: 700;
     }
     .wf-legend .item {
-      display: grid;                 /* スウォッチとテキストを綺麗に整列 */
+      display: grid;
       grid-template-columns: var(--legend-swatch) 1fr;
       align-items: center;
       gap: var(--legend-gap);
-      margin: 6px 0;                 /* 3px→6px */
+      margin: 6px 0;
     }
     .wf-legend .swatch {
       width: var(--legend-swatch);
       height: var(--legend-swatch);
-      border-radius: 4px;            /* 3px→4px */
+      border-radius: 4px;
       border: 1px solid rgba(0,0,0,.18);
     }
-    .wf-legend .item span:last-child { /* ラベルだけ太字に（JS変更不要） */
+    .wf-legend .item span:last-child {
       font-weight: 600;
       letter-spacing: .01em;
     }
@@ -135,7 +136,6 @@
       width: auto; height: auto;
     }
     .wf-inset img.is-beeswarm {
-      /* 元: max-width: clamp(240px, 32vw, 520px); max-height: clamp(150px, 32vh, 340px); */
       max-width: clamp(300px, 36vw, 600px);
       max-height: clamp(180px, 36vh, 380px);
     }
@@ -144,7 +144,6 @@
       font: 12px/1.3 system-ui, sans-serif;
     }
 
-    /* Credits moved to top-left to avoid overlapping with inset */
     .credits {
       position: absolute; top: 12px; right: 12px; left: auto;
       background: rgba(255,255,255,.9); padding: 6px 8px;
@@ -167,7 +166,7 @@
 
       // i18n (UI is English)
       const I18N = {
-        en: { probLabel: 'Probability　of　occurrence', propKey: 'Probability', open: 'Open image in a new tab' },
+        en: { probLabel: 'Probability\u3000of\u3000occurrence', propKey: 'Probability', open: 'Open image in a new tab' },
       };
       const LANG = 'en';
 
@@ -184,7 +183,7 @@
       const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 13 });
 
       // --- Custom panes to control strict z-order (tiles < raster < study < stream < points) ---
-      // tilePane (zIndex ~200) is below; we put raster below study/stream, which are below default overlayPane (~400).
+      // tilePane (zIndex ~200) is below; put raster below study/stream; points use default overlayPane (~400).
       map.createPane('pane-raster');  map.getPane('pane-raster').style.zIndex  = 305; // below study
       map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310; // bottom-most vector overlay
       map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320; // above study
@@ -296,13 +295,13 @@
         if (!elevResp.ok) throw new Error(`Failed to fetch ${elevUrl}: ${elevResp.status} ${elevResp.statusText}`);
         const elevBuf = await elevResp.arrayBuffer();
 
-        // ブラウザ版はグローバル関数 parseGeoraster が使えます
+        // Provided by georaster (camelCase)
         const georaster = await parseGeoraster(elevBuf);
 
         const min = (georaster.mins && georaster.mins[0]) ?? 0;
         const max = (georaster.maxs && georaster.maxs[0]) ?? (min + 1);
 
-        // 簡易カラーランプ（低地→高地）
+        // Simple color ramp (low → high)
         const elevRamp = ['#081d58','#225ea8','#1d91c0','#41b6c4','#7fcdbb','#c7e9b4','#ffffcc'];
         const colorForElev = (v) => {
           if (v == null || !isFinite(v)) return null;
@@ -315,14 +314,14 @@
           georaster,
           pane: 'pane-raster',
           opacity: 0.6,
-          resolution: 256, // 見た目と速度のバランス
+          resolution: 256,
           pixelValuesToColorFn: values => colorForElev(values[0])
         }).addTo(map);
 
         overlayLayers['Elevation'] = elevationLayer;
         layersControl.addOverlay(elevationLayer, 'Elevation');
       } catch (e) {
-        console.warn('Elevation.tif の読み込みをスキップ:', e);
+        console.warn('Skipping Elevation.tif loading:', e);
       }
 
       // ===== Load Study Area (polygon) as bottom-most overlay =====
@@ -334,7 +333,7 @@
         const tables = gpkg.getFeatureTables();
         if (!tables || !tables.length) { gpkg.close(); throw new Error(`No feature layers found in ${url}`); }
 
-        const group = L.layerGroup(); // we add layers into this group, then add group to map & control
+        const group = L.layerGroup();
         for (const tableName of tables) {
           const lyr = L.geoPackageFeatureLayer([], {
             geoPackageUrl: url,
@@ -345,7 +344,7 @@
           });
           group.addLayer(lyr);
         }
-        group.addTo(map); // visible by default
+        group.addTo(map);
         overlayLayers[layerLabel] = group;
         layersControl.addOverlay(group, layerLabel);
         gpkg.close();
@@ -379,21 +378,20 @@
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: gpkgPointsUrl,
           layerName: tableName,
-          // (default pane: overlayPane -> above streams)
+          // default pane (overlayPane) -> above streams
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             return L.circleMarker(latlng, {
               radius: 8,
               weight: 2,
               opacity: 1,
-              color: '#000000',     // white stroke
+              color: '#ffffff',     // white stroke
               fillOpacity: 0.9,
               fillColor: colorForPercent(p),
               className: 'wf-point'
             });
           },
           onEachFeature: (feature, lyr) => {
-            // keep stroke white
             lyr.setStyle({ color: '#ffffff' });
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
           }
