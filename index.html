@@ -39,7 +39,13 @@
       const gpkgUrl = 'data/Probability_of_occurrence.gpkg'; // リポジトリの相対パス
 
       // GeoPackageライブラリに、WASM(sql-wasm.wasm)の取得先CDNを明示
-      const { GeoPackageManager, setSqljsWasmLocateFile } = window.GeoPackage;
+      // GeoPackage のグローバルから、バージョン差異に対応（GeoPackageManager か GeoPackageAPI）
+const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
+const GPM = GeoPackageManager || GeoPackageAPI;
+if (!GPM || typeof GPM.open !== 'function') {
+  console.error('window.GeoPackage keys:', window.GeoPackage && Object.keys(window.GeoPackage));
+  throw new Error('GeoPackageライブラリの初期化に失敗しました（GeoPackageManager/GeoPackageAPI が見つからない）');
+}
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
       // ===== 地図初期化 =====
@@ -53,7 +59,7 @@
       const resp = await fetch(gpkgUrl);
       if (!resp.ok) throw new Error(`GPKGの取得に失敗しました: ${resp.status} ${resp.statusText}`);
       const arrayBuf = await resp.arrayBuffer();
-      const gpkg = await GeoPackageManager.open(new Uint8Array(arrayBuf));
+      const gpkg = await GPM.open(new Uint8Array(arrayBuf));
       const featureTables = gpkg.getFeatureTables();
       if (!featureTables || featureTables.length === 0) throw new Error('このGeoPackageにフィーチャレイヤーが見つかりません');
 
