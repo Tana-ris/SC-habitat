@@ -177,7 +177,7 @@
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
       // Map init
-      const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 14 });
+      const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 13 });
 
       // --- Custom panes to control strict z-order (tiles < study < stream < points) ---
       // tilePane (zIndex ~200) is below; we put study/stream below default overlayPane (400).
@@ -317,7 +317,7 @@
         gpkgStudyUrl,
         'pane-study',
         'Study area',
-        { color: '#424242', weight: 2.3, fillColor: #c9ddf5', fillOpacity: 0.40 }
+        { color: '#424242', weight: 2.3, fillColor: '#c9ddf5', fillOpacity: 0.40 }
       );
 
       // Streams line style (blue, above polygon)
@@ -393,6 +393,7 @@
   </script>
 </body>
 </html>
+
 
 
 
