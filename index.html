@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Visualizing Probability_of_occurrence.gpkg on a Map</title>
+  <title>What Factors Determine Sasakia charonda Habitat?</title>
 
   <!-- Leaflet -->
   <link
@@ -103,6 +103,11 @@
       max-height: clamp(150px, 32vh, 340px);
       width: auto; height: auto;
     }
+    .wf-inset img.is-beeswarm {
+      /* 元: max-width: clamp(240px, 32vw, 520px); max-height: clamp(150px, 32vh, 340px); */
+      max-width: clamp(300px, 36vw, 600px);
+      max-height: clamp(180px, 36vh, 380px);
+    }
     .wf-inset .cap {
       margin-top: 6px; text-align: center;
       font: 12px/1.3 system-ui, sans-serif;
@@ -110,7 +115,7 @@
 
     /* Credits moved to top-left to avoid overlapping with inset */
     .credits {
-      position: absolute; top: 12px; left: 12px;
+      position: absolute; top: 12px; right: 12px; left: auto;
       background: rgba(255,255,255,.9); padding: 6px 8px;
       border-radius: 8px; font: 12px/1.2 system-ui, sans-serif;
       z-index: 500;
@@ -130,7 +135,7 @@
 
       // i18n (UI is English)
       const I18N = {
-        en: { probLabel: 'Occurrence probability', propKey: 'Probability', open: 'Open image in a new tab' },
+        en: { probLabel: 'Probability　of　occurrence', propKey: 'Probability', open: 'Open image in a new tab' },
       };
       const LANG = 'en';
 
@@ -163,9 +168,6 @@
         'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
           maxZoom: 18, attribution: '&copy; GSI'
         }),
-        'OpenTopoMap': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-          maxZoom: 17, attribution: 'Map data &copy; OSM, SRTM; Tiles &copy; OpenTopoMap'
-        }),
         'Esri World Imagery': L.tileLayer(
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
           { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
@@ -175,7 +177,10 @@
 
       // Controls
       const overlayLayers = {};
-      const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false }).addTo(map);
+      const layersControl = L.control.layers(baseLayers, overlayLayers, {
+        collapsed: false,
+        position: 'topleft'
+      }).addTo(map);
 
       // Inset image (bottom-left)
       const inset = L.control({ position: 'bottomleft' });
@@ -183,7 +188,7 @@
         const div = L.DomUtil.create('div', 'wf-inset');
         const url = 'data/beeswarm_RF.png';
         div.innerHTML = `
-          <img src="${url}" alt="Beeswarm (Random Forest)"/>
+          <img class="is-beeswarm" src="${url}" alt="Beeswarm (Random Forest)"/>
           <div class="cap">Beeswarm (Random Forest)</div>
         `;
         L.DomEvent.disableClickPropagation(div);
@@ -284,7 +289,7 @@
         gpkgStudyUrl,
         'pane-study',
         'Study area',
-        { color: '#424242', weight: 1.3, fillColor: '#bdbdbd', fillOpacity: 0.25 }
+        { color: '#424242', weight: 1.3, fillColor: '#bbedca', fillOpacity: 0.65 }
       );
 
       // Streams line style (blue, above polygon)
@@ -360,3 +365,4 @@
   </script>
 </body>
 </html>
+
