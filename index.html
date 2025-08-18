@@ -49,7 +49,9 @@ if (!GPM || typeof GPM.open !== 'function') {
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
       // ===== 地図初期化 =====
-      const map = L.map('map', { center: [35.0, 135.0], zoom: 5 });
+      // 初期表示：滑川町（埼玉県）にズーム
+// 参考座標（町役場付近）：36.066000, 139.360972
+const map = L.map('map', { center: [36.066000, 139.360972], zoom: 13 });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
@@ -86,23 +88,29 @@ if (!GPM || typeof GPM.open !== 'function') {
                 .join('');
               lyr.bindPopup(`<table>${rows}</table>`);
             }
+            // 追加：各フィーチャ追加時に表示範囲を更新（ポイント/ライン/ポリゴン対応）
+            try {
+              if (typeof lyr.getLatLng === 'function') {
+                globalBounds.extend(lyr.getLatLng());
+              } else if (typeof lyr.getBounds === 'function') {
+                globalBounds.extend(lyr.getBounds());
+              }
+            } catch (e) { /* noop */ }
           }
         }).addTo(map);
 
         layersControl.addOverlay(layer, tableName);
         addedLayers.push(layer);
 
-        // ついでに全体の表示範囲を計算（GPKGからGeoJSONをストリーミングして座標だけ拾う）
-        const rs = gpkg.queryForGeoJSONFeatures(tableName);
-        for (const f of rs) {
-          addCoordsToBounds(f.geometry && f.geometry.coordinates, globalBounds);
-        }
-        rs.close();
+        // 以前は gpkg.queryForGeoJSONFeatures(...) を使ってboundsを計算していましたが
+        // バージョン差で未実装なため、onEachFeatureで随時globalBoundsを更新する方式に変更しました。
       }
 
-      if (globalBounds.isValid()) {
-        map.fitBounds(globalBounds.pad(0.1));
-      }
+      // 自動フィットは無効化（初期ズームは滑川町のまま）。
+      // 必要なら下のコメントを外して、データ全体にフィットさせられます。
+      // if (globalBounds.isValid()) {
+      //   map.fitBounds(globalBounds.pad(0.1));
+      // }
 
       gpkg.close();
 
