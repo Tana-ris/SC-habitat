@@ -45,9 +45,7 @@
     .leaflet-control-layers-toggle { width: 34px; height: 34px; }
 
     /* コンパクト＆折りたたみ（左パネル） */
-    .leaflet-control-layers.is-compact {
-      font-size: 12px;
-    }
+    .leaflet-control-layers.is-compact { font-size: 12px; }
     .leaflet-control-layers.is-compact .leaflet-control-layers-expanded {
       max-height: 200px; padding: 6px 8px;
     }
@@ -162,7 +160,7 @@
         zoom: 13
       });
 
-      // Panes（ラスタは使用しないため2つのみ）
+      // Panes（ラスタ無し）
       map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310;
       map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320;
 
@@ -184,7 +182,7 @@
       };
       baseLayers['OpenStreetMap'].addTo(map);
 
-      // 補助: 縮尺バー
+      // 縮尺バー
       L.control.scale({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 120 }).addTo(map);
 
       // Controls
@@ -267,7 +265,7 @@
         img.src = url;
       }
 
-      // ===== Simple GPKG loader（group を返す） =====
+      // ===== GPKG ローダ（FeatureGroup を返す：getBounds 使用可） =====
       async function addSimpleVectorGpkg(url, paneName, layerLabel, styleObj) {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status} ${resp.statusText}`);
@@ -276,7 +274,7 @@
         const tables = gpkg.getFeatureTables();
         if (!tables || !tables.length) { gpkg.close(); throw new Error(`No feature layers found in ${url}`); }
 
-        const group = L.layerGroup();
+        const group = L.featureGroup(); // ← ここを FeatureGroup に
         for (const tableName of tables) {
           const lyr = L.geoPackageFeatureLayer([], {
             geoPackageUrl: url,
@@ -294,14 +292,16 @@
         return group;
       }
 
-      // Study area：塗り無し & 太線（→ 読み込み後に全体へフィット）
+      // Study area：塗り無し & 太線 → 読み込み後に全体へフィット
       const studyGroup = await addSimpleVectorGpkg(
         gpkgStudyUrl, 'pane-study', 'Study area',
         { color: '#263238', weight: 3.8, fillOpacity: 0, fill: false }
       );
-      // 自動ズーム
-      const bounds = studyGroup.getBounds();
-      if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
+      // getBounds 利用（FeatureGroup なので可）
+      const studyBounds = studyGroup.getBounds();
+      if (studyBounds && studyBounds.isValid()) {
+        map.fitBounds(studyBounds, { padding: [20, 20] });
+      }
 
       // Streams
       await addSimpleVectorGpkg(
