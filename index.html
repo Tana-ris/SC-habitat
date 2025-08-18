@@ -22,9 +22,10 @@
   <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
-  <!-- GeoTIFF / GeoRaster / GeoRasterLayer (順序重要) -->
+  <!-- GeoTIFF / GeoRaster / Layer  ※順序重要 -->
   <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
-  <script src="https://unpkg.com/georaster/dist/georaster.browser.min.js"></script>
+  <!-- ★以前動いていた形：ルート URL（UMD）を使用 -->
+  <script src="https://unpkg.com/georaster"></script>
   <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
 
   <style>
@@ -115,7 +116,7 @@
     }
     .wf-legend.is-collapsed .body { display: none; }
 
-    /* ===== Popup / Inset / Credits は従来通り ===== */
+    /* ===== Popup / Inset / Credits ===== */
     .wf-popup .leaflet-popup-content-wrapper { border-radius: 12px; overflow: hidden; }
     .wf-popup .leaflet-popup-content {
       box-sizing: border-box; width: clamp(280px, 60vw, 960px);
@@ -131,11 +132,6 @@
     .wf-img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .wf-link { margin-top: 2px; font-size: clamp(14px, 1.6vw, 18px); font-weight: 700; text-align: center; }
     .wf-link a { text-decoration: underline; }
-    .wf-popup .leaflet-popup-close-button {
-      width: 28px; height: 28px; line-height: 28px; font-size: 18px; font-weight: 800;
-      color: #fff; background: rgba(0,0,0,.65); border-radius: 999px; top: 6px; right: 6px;
-    }
-    .wf-popup .leaflet-popup-close-button:hover { background: rgba(0,0,0,.8); }
 
     .wf-inset.leaflet-control {
       background: rgba(255,255,255,.96); padding: 8px; border-radius: 10px;
@@ -173,29 +169,18 @@
       if (!GPM || typeof GPM.open !== 'function') throw new Error('Failed to initialize GeoPackage library.');
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // Map
+      // Map & panes
       const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 13 });
-
-      // Panes
       map.createPane('pane-raster');  map.getPane('pane-raster').style.zIndex  = 305;
       map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310;
       map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320;
 
       // Basemaps
       const baseLayers = {
-        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
-        }),
-        'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-          maxZoom: 18, attribution: '&copy; GSI'
-        }),
-        'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
-          maxZoom: 18, attribution: '&copy; GSI'
-        }),
-        'Esri World Imagery': L.tileLayer(
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-        )
+        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }),
+        'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; GSI' }),
+        'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; GSI' }),
+        'Esri World Imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' })
       };
       baseLayers['OpenStreetMap'].addTo(map);
 
@@ -203,7 +188,7 @@
       const overlayLayers = {};
       const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false, position: 'topleft' }).addTo(map);
 
-      // 左パネルに小さなトグル（Compact / Collapse）
+      // 左パネルに小型トグル（◻=コンパクト / –=折りたたみ）
       const lc = layersControl.getContainer();
       const lcMini = L.DomUtil.create('div', 'mini-btn', lc);
       lcMini.innerHTML = `<button type="button" title="Compact">◻</button><button type="button" title="Hide">–</button>`;
@@ -222,14 +207,14 @@
       };
       inset.addTo(map);
 
-      // Helpers
+      // ===== Helpers =====
       function getProbAsPercent(props) {
         const cand = ['Probablity','Probability','probability','PROBABILITY','prob','value'];
         let v = null;
-        for (const key of cand) if (props && Object.prototype.hasOwnProperty.call(props, key)) { v = Number(props[key]); break; }
+        for (const key of cand) { if (props && Object.prototype.hasOwnProperty.call(props, key)) { v = Number(props[key]); break; } }
         if (!isFinite(v)) return null;
-        if (v >= 0 && v <= 1) return v * 100;   // 0–1 -> %
-        if (v > 1 && v <= 100) return v;        // 1–100 -> %
+        if (v >= 0 && v <= 1) return v * 100;
+        if (v > 1 && v <= 100) return v;
         return null;
       }
       function prettyName(name) {
@@ -238,22 +223,8 @@
         if (lower === 'probability_of_occurrence') return 'Probability of occurrence';
         return String(name).replace(/_/g, ' ');
       }
-      const t = I18N[LANG];
-      const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
-      const buildPngPopupHtml = (probText, url, id) => `
-        <div class="wf-pop">
-          <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
-          <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
-          <div class="wf-img-wrap"><img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" /></div>
-        </div>`;
 
-      // Color helpers for elevation
-      function hexToRgb(hex){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:{r:0,g:0,b:0};}
-      function rgbToHex(r,g,b){const toHex=(v)=>('0'+v.toString(16)).slice(-2);return `#${toHex(r)}${toHex(g)}${toHex(b)}`;}
-      function lerp(a,b,t){return a+(b-a)*t;}
-      function lerpColor(c1,c2,t){const A=hexToRgb(c1),B=hexToRgb(c2);return rgbToHex(Math.round(lerp(A.r,B.r,t)),Math.round(lerp(A.g,B.g,t)),Math.round(lerp(A.b,B.b,t)));}
-
-      // Points color ramp
+      // points color ramp
       const colorBelow = '#eeeeee', colorAbove = '#4a1486';
       const ramp = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f'];
       function colorForPercent(p){
@@ -269,20 +240,14 @@
         return colorAbove;
       }
 
-      async function handleWaterfallClick(feature, ev) {
-        const props = (feature && feature.properties) || {};
-        const id = props.ID ?? props.id ?? props.Id;
-        const p = getProbAsPercent(props);
-        const probText = formatProbabilityText(p);
-        const popup = L.popup({ maxWidth: Math.min(960, Math.floor(window.innerWidth * 0.9)), className: 'wf-popup',
-          autoPan: true, keepInView: true, autoPanPadding: [30, 30] }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
-        if (id == null) { popup.setContent('This point has no ID attribute.'); return; }
-        const url = `data/waterfall/waterfall_ID${id}_RF.png`;
-        const img = new Image();
-        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
-        img.onerror = () => { popup.setContent(`File not found: <code>${url}</code>`); };
-        img.src = url;
-      }
+      const t = I18N[LANG];
+      const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
+      const buildPngPopupHtml = (probText, url, id) => `
+        <div class="wf-pop">
+          <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
+          <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
+          <div class="wf-img-wrap"><img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" /></div>
+        </div>`;
 
       // ===== Elevation (GeoTIFF raster) =====
       try {
@@ -290,25 +255,31 @@
         if (!elevResp.ok) throw new Error(`Failed to fetch ${elevUrl}: ${elevResp.status} ${elevResp.statusText}`);
         const elevBuf = await elevResp.arrayBuffer();
 
-        // ここで parseGeoraster を直接使用（このスクリプトでは必ず定義されるはず）
-        if (typeof window.parseGeoraster !== 'function') {
-          throw new ReferenceError('parseGeoraster is not defined. Check script order and cache.');
-        }
-        const georaster = await window.parseGeoraster(elevBuf);
+        // ★ ビルド差異に対応した自動検出（以前の実装に戻す）
+        const parse =
+          (typeof window.parseGeoraster === 'function' && window.parseGeoraster) ||
+          (typeof window.parseGeoRaster === 'function' && window.parseGeoRaster) ||
+          (window.georaster && (window.georaster.parseGeoraster || window.georaster.parse));
 
+        if (typeof parse !== 'function') {
+          throw new ReferenceError('georaster parser not found (parseGeoraster/parseGeoRaster). Check <script src="https://unpkg.com/georaster"> load & cache.');
+        }
+
+        const georaster = await parse(elevBuf);
         const min = (georaster.mins && georaster.mins[0]) ?? 0;
         const max = (georaster.maxs && georaster.maxs[0]) ?? (min + 1);
 
-        // 自然な地形風パレット
+        // 地形風パレット（緑→黄土→褐色→灰→白）
+        function hexToRgb(hex){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:{r:0,g:0,b:0};}
+        function rgbToHex(r,g,b){const toHex=(v)=>('0'+v.toString(16)).slice(-2);return `#${toHex(r)}${toHex(g)}${toHex(b)}`;}
+        function lerp(a,b,t){return a+(b-a)*t;}
+        function lerpColor(c1,c2,t){const A=hexToRgb(c1),B=hexToRgb(c2);return rgbToHex(Math.round(lerp(A.r,B.r,t)),Math.round(lerp(A.g,B.g,t)),Math.round(lerp(A.b,B.b,t)));}
+
         const stops = [
-          { t: 0.00, c: '#00441b' }, // deep green
-          { t: 0.15, c: '#1b7837' },
-          { t: 0.30, c: '#5aae61' },
-          { t: 0.50, c: '#a6d96a' },
-          { t: 0.70, c: '#dfc27d' }, // tan
-          { t: 0.85, c: '#a6611a' }, // brown
-          { t: 0.94, c: '#cfcfcf' }, // gray
-          { t: 1.00, c: '#ffffff' }  // snow
+          { t: 0.00, c: '#00441b' }, { t: 0.15, c: '#1b7837' },
+          { t: 0.30, c: '#5aae61' }, { t: 0.50, c: '#a6d96a' },
+          { t: 0.70, c: '#dfc27d' }, { t: 0.85, c: '#a6611a' },
+          { t: 0.94, c: '#cfcfcf' }, { t: 1.00, c: '#ffffff' }
         ];
         function colorForElev(v){
           if (v == null || !isFinite(v)) return null;
@@ -392,7 +363,7 @@
         layersControl.addOverlay(layer, displayName);
       }
 
-      // ===== Legend =====
+      // ===== Legend（右下） =====
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
@@ -421,7 +392,7 @@
       };
       legend.addTo(map);
 
-      // 凡例トグルを配線
+      // 凡例の小型トグル
       const lg = legend.getContainer();
       const [btnLGCompact, btnLGCollapse] = lg.querySelectorAll('.mini-btn button');
       btnLGCompact.addEventListener('click', (e) => { e.stopPropagation(); lg.classList.toggle('is-compact'); });
