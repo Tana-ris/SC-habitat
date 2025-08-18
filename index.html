@@ -18,14 +18,12 @@
     crossorigin=""
   ></script>
 
-  <!-- GeoPackage (browser) -->
+  <!-- GeoPackage -->
   <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
-  <!-- Leaflet GeoPackage plugin (load layers from URL) -->
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
-  <!-- GeoTIFF / GeoRaster / GeoRasterLayer（推奨の読み込み順） -->
+  <!-- GeoTIFF / GeoRaster / GeoRasterLayer (順序重要) -->
   <script src="https://unpkg.com/geotiff/dist/geotiff.min.js"></script>
-  <!-- georaster は UMD 版を指定（グローバルに parser を公開） -->
   <script src="https://unpkg.com/georaster/dist/georaster.browser.min.js"></script>
   <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
 
@@ -36,7 +34,8 @@
     /* ===== Layers control (top-left) ===== */
     .leaflet-control-layers {
       font-size: clamp(14px, 1.6vw, 18px);
-      transition: transform .15s ease, opacity .15s ease;
+      position: relative;
+      transition: all .15s ease;
     }
     .leaflet-control-layers-expanded {
       max-height: 380px; overflow: auto;
@@ -50,150 +49,106 @@
     }
     .leaflet-control-layers-toggle { width: 34px; height: 34px; }
 
-    /* コンパクト化（トグル用） */
+    /* コンパクト＆折りたたみ（左パネル） */
     .leaflet-control-layers.is-compact {
       font-size: 12px;
     }
     .leaflet-control-layers.is-compact .leaflet-control-layers-expanded {
-      max-height: 180px;
-      padding: 6px 8px;
+      max-height: 200px; padding: 6px 8px;
     }
-    .leaflet-control-layers.is-compact input {
-      transform: scale(1.0);
-      margin-right: 4px;
+    .leaflet-control-layers.is-collapsed .leaflet-control-layers-base,
+    .leaflet-control-layers.is-collapsed .leaflet-control-layers-separator,
+    .leaflet-control-layers.is-collapsed .leaflet-control-layers-overlays {
+      display: none;
     }
-
-    /* トグルボタン（左上） */
-    .ui-toggle.leaflet-control {
-      background: rgba(255,255,255,.96);
-      padding: 6px 8px; border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.12);
-      font: 13px/1.2 system-ui, sans-serif;
-      display: grid; gap: 6px;
+    .mini-btn {
+      position: absolute; top: 6px; right: 6px;
+      display: flex; gap: 4px;
     }
-    .ui-toggle button {
-      cursor: pointer;
-      border: 1px solid rgba(0,0,0,.15);
-      border-radius: 8px;
-      background: #fff;
-      padding: 6px 10px;
+    .mini-btn button {
+      width: 22px; height: 22px; line-height: 20px;
+      border: 1px solid rgba(0,0,0,.2);
+      border-radius: 6px; background: #fff; cursor: pointer;
+      font: 12px/1 system-ui, sans-serif; padding: 0;
     }
+    .mini-btn button:active { transform: translateY(1px); }
 
     /* ===== Legend (bottom-right) ===== */
     .wf-legend.leaflet-control {
       --legend-font-size: clamp(15px, 1.8vw, 20px);
       --legend-line-height: 1.45;
-      --legend-swatch: clamp(18px, 2vw, 24px);
-      --legend-gap: clamp(8px, 1vw, 12px);
+      --legend-swatch: clamp(18px, 2vw, 22px);
+      --legend-gap: clamp(8px, 1vw, 10px);
 
       background: rgba(255,255,255,.96);
       padding: 14px 16px;
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0,0,0,.14);
       font: var(--legend-font-size)/var(--legend-line-height) system-ui, sans-serif;
-      font-variant-numeric: tabular-nums;
       min-width: 210px;
       transition: all .15s ease;
+      position: relative;
     }
     .wf-legend .hdr {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; margin: 0 0 10px;
-      font-size: calc(var(--legend-font-size) * 1.05); font-weight: 700;
+      gap: 10px; margin: 0 0 10px; font-weight: 700;
+      font-size: calc(var(--legend-font-size) * 1.0);
     }
-    .wf-legend .btn-legend {
-      cursor: pointer;
-      border: 1px solid rgba(0,0,0,.15);
-      border-radius: 8px; background: #fff; padding: 4px 8px;
-      font: 12px/1 system-ui, sans-serif;
+    .wf-legend .mini-btn {
+      position: static; gap: 4px;
     }
-    .wf-legend .body {
-      display: block;
-    }
+    .wf-legend .body { display: block; }
     .wf-legend .item {
-      display: grid;
-      grid-template-columns: var(--legend-swatch) 1fr;
-      align-items: center;
-      gap: var(--legend-gap);
-      margin: 6px 0;
+      display: grid; grid-template-columns: var(--legend-swatch) 1fr;
+      align-items: center; gap: var(--legend-gap); margin: 6px 0;
     }
     .wf-legend .swatch {
-      width: var(--legend-swatch);
-      height: var(--legend-swatch);
-      border-radius: 4px;
-      border: 1px solid rgba(0,0,0,.18);
+      width: var(--legend-swatch); height: var(--legend-swatch);
+      border-radius: 4px; border: 1px solid rgba(0,0,0,.18);
     }
     .wf-legend .item span:last-child { font-weight: 600; letter-spacing: .01em; }
 
-    /* コンパクト化（凡例） */
+    /* コンパクト＆折りたたみ（凡例） */
     .wf-legend.is-compact {
-      --legend-font-size: 13px;
-      --legend-swatch: 16px;
-      --legend-gap: 6px;
-      padding: 10px 12px;
-      min-width: 170px;
+      --legend-font-size: 13px; --legend-swatch: 16px; --legend-gap: 6px;
+      padding: 10px 12px; min-width: 170px;
     }
     .wf-legend.is-collapsed .body { display: none; }
 
-    /* ===== Popup ===== */
+    /* ===== Popup / Inset / Credits は従来通り ===== */
     .wf-popup .leaflet-popup-content-wrapper { border-radius: 12px; overflow: hidden; }
     .wf-popup .leaflet-popup-content {
-      box-sizing: border-box;
-      width: clamp(280px, 60vw, 960px);
-      height: clamp(260px, 60vh, 720px);
-      margin: 8px 10px; overflow: hidden;
+      box-sizing: border-box; width: clamp(280px, 60vw, 960px);
+      height: clamp(260px, 60vh, 720px); margin: 8px 10px; overflow: hidden;
     }
-    @supports (height: 100dvh) {
-      .wf-popup .leaflet-popup-content { height: clamp(260px, 60dvh, 720px); }
-    }
-    .wf-pop {
-      width: 100%; height: 100%;
-      display: flex; flex-direction: column; gap: 8px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-    }
-    .wf-prob {
-      font-size: clamp(16px, 2vw, 22px);
-      line-height: 1.4; font-weight: 700; text-align: center;
-      white-space: normal; overflow-wrap: anywhere; word-break: break-word;
-      padding: 6px 8px; background: rgba(0,0,0,.03); border-radius: 6px;
-    }
-    .wf-img-wrap {
-      flex: 1 1 auto; min-height: 0;
-      display: flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(0,0,0,.08); border-radius: 8px; background: #fff;
-    }
+    @supports (height: 100dvh) {.wf-popup .leaflet-popup-content { height: clamp(260px, 60dvh, 720px); }}
+    .wf-pop { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+    .wf-prob { font-size: clamp(16px, 2vw, 22px); line-height: 1.4; font-weight: 700; text-align: center;
+      padding: 6px 8px; background: rgba(0,0,0,.03); border-radius: 6px; }
+    .wf-img-wrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(0,0,0,.08); border-radius: 8px; background: #fff; }
     .wf-img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .wf-link { margin-top: 2px; font-size: clamp(14px, 1.6vw, 18px); font-weight: 700; text-align: center; }
     .wf-link a { text-decoration: underline; }
     .wf-popup .leaflet-popup-close-button {
-      width: 28px; height: 28px; line-height: 28px;
-      font-size: 18px; font-weight: 800; color: #fff; background: rgba(0,0,0,.65);
-      border-radius: 999px; top: 6px; right: 6px;
+      width: 28px; height: 28px; line-height: 28px; font-size: 18px; font-weight: 800;
+      color: #fff; background: rgba(0,0,0,.65); border-radius: 999px; top: 6px; right: 6px;
     }
     .wf-popup .leaflet-popup-close-button:hover { background: rgba(0,0,0,.8); }
 
-    /* ===== Inset image control (bottom-left) ===== */
     .wf-inset.leaflet-control {
-      background: rgba(255,255,255,.96);
-      padding: 8px; border-radius: 10px;
+      background: rgba(255,255,255,.96); padding: 8px; border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,.12);
     }
-    .wf-inset img {
-      display: block;
-      max-width: clamp(240px, 32vw, 520px);
-      max-height: clamp(150px, 32vh, 340px);
-      width: auto; height: auto;
-    }
-    .wf-inset img.is-beeswarm {
-      max-width: clamp(300px, 36vw, 600px);
-      max-height: clamp(180px, 36vh, 380px);
-    }
+    .wf-inset img { display: block; max-width: clamp(240px, 32vw, 520px); max-height: clamp(150px, 32vh, 340px); }
+    .wf-inset img.is-beeswarm { max-width: clamp(300px, 36vw, 600px); max-height: clamp(180px, 36vh, 380px); }
     .wf-inset .cap { margin-top: 6px; text-align: center; font: 12px/1.3 system-ui, sans-serif; }
 
     .credits {
       position: absolute; top: 12px; right: 12px; left: auto;
       background: rgba(255,255,255,.9); padding: 6px 8px;
-      border-radius: 8px; font: 12px/1.2 system-ui, sans-serif;
-      z-index: 500;
+      border-radius: 8px; font: 12px/1.2 system-ui, sans-serif; z-index: 500;
     }
   </style>
 </head>
@@ -205,32 +160,26 @@
     (async function () {
       // ===== Paths =====
       const gpkgPointsUrl = 'data/Probability_of_occurrence.gpkg';
-      const gpkgStudyUrl  = 'data/Study_area.gpkg';  // polygon (bottom-most overlay)
-      const gpkgStreamUrl = 'data/stream.gpkg';      // line (just above polygon)
-      const elevUrl       = 'data/Elevation.tif';    // GeoTIFF (raster)
+      const gpkgStudyUrl  = 'data/Study_area.gpkg';
+      const gpkgStreamUrl = 'data/stream.gpkg';
+      const elevUrl       = 'data/Elevation.tif';
 
-      // i18n (UI is English)
-      const I18N = {
-        en: { probLabel: 'Probability\u3000of\u3000occurrence', propKey: 'Probability', open: 'Open image in a new tab' },
-      };
+      const I18N = { en: { probLabel: 'Probability\u3000of\u3000occurrence', propKey: 'Probability', open: 'Open image in a new tab' } };
       const LANG = 'en';
 
       // GeoPackage init
       const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
       const GPM = GeoPackageManager || GeoPackageAPI;
-      if (!GPM || typeof GPM.open !== 'function') {
-        console.error('window.GeoPackage keys:', window.GeoPackage && Object.keys(window.GeoPackage));
-        throw new Error('Failed to initialize GeoPackage library (GeoPackageManager/GeoPackageAPI missing).');
-      }
+      if (!GPM || typeof GPM.open !== 'function') throw new Error('Failed to initialize GeoPackage library.');
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // Map init
+      // Map
       const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 13 });
 
-      // --- Custom panes to control strict z-order (tiles < raster < study < stream < points) ---
-      map.createPane('pane-raster');  map.getPane('pane-raster').style.zIndex  = 305; // below study
-      map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310; // bottom-most vector overlay
-      map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320; // above study
+      // Panes
+      map.createPane('pane-raster');  map.getPane('pane-raster').style.zIndex  = 305;
+      map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310;
+      map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320;
 
       // Basemaps
       const baseLayers = {
@@ -252,80 +201,62 @@
 
       // Controls
       const overlayLayers = {};
-      const layersControl = L.control.layers(baseLayers, overlayLayers, {
-        collapsed: false,
-        position: 'topleft'
-      }).addTo(map);
+      const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false, position: 'topleft' }).addTo(map);
 
-      // === Layers size toggle (top-left small panel) ===
-      const sizeToggle = L.control({ position: 'topleft' });
-      sizeToggle.onAdd = function () {
-        const div = L.DomUtil.create('div', 'ui-toggle');
-        div.innerHTML = `
-          <button type="button" id="btn-layers-size" aria-pressed="false" title="Toggle layers size">Layers: Compact</button>
-          <button type="button" id="btn-legend-size" aria-pressed="false" title="Toggle legend size">Legend: Compact</button>
-          <button type="button" id="btn-legend-collapse" aria-pressed="false" title="Collapse/Expand legend">Legend: Hide</button>
-        `;
-        L.DomEvent.disableClickPropagation(div);
-        return div;
-      };
-      sizeToggle.addTo(map);
+      // 左パネルに小さなトグル（Compact / Collapse）
+      const lc = layersControl.getContainer();
+      const lcMini = L.DomUtil.create('div', 'mini-btn', lc);
+      lcMini.innerHTML = `<button type="button" title="Compact">◻</button><button type="button" title="Hide">–</button>`;
+      const [btnLCCompact, btnLCCollapse] = lcMini.querySelectorAll('button');
+      L.DomEvent.on(btnLCCompact, 'click', (e) => { L.DomEvent.stop(e); lc.classList.toggle('is-compact'); });
+      L.DomEvent.on(btnLCCollapse, 'click', (e) => { L.DomEvent.stop(e); lc.classList.toggle('is-collapsed'); });
 
-      // Inset image (bottom-left)
+      // Inset image
       const inset = L.control({ position: 'bottomleft' });
       inset.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-inset');
         const url = 'data/beeswarm_RF.png';
-        div.innerHTML = `
-          <img class="is-beeswarm" src="${url}" alt="Beeswarm (Random Forest)"/>
-          <div class="cap">Global SHAP (Random Forest)</div>
-        `;
+        div.innerHTML = `<img class="is-beeswarm" src="${url}" alt="Beeswarm (Random Forest)"/><div class="cap">Beeswarm (Random Forest)</div>`;
         L.DomEvent.disableClickPropagation(div);
         return div;
       };
       inset.addTo(map);
 
-      // ===== Helpers =====
+      // Helpers
       function getProbAsPercent(props) {
         const cand = ['Probablity','Probability','probability','PROBABILITY','prob','value'];
         let v = null;
-        for (const key of cand) {
-          if (props && Object.prototype.hasOwnProperty.call(props, key)) { v = Number(props[key]); break; }
-        }
+        for (const key of cand) if (props && Object.prototype.hasOwnProperty.call(props, key)) { v = Number(props[key]); break; }
         if (!isFinite(v)) return null;
         if (v >= 0 && v <= 1) return v * 100;   // 0–1 -> %
         if (v > 1 && v <= 100) return v;        // 1–100 -> %
         return null;
       }
-
-      // 表示名整形（アンダーバー→スペース、特定名は置換）
       function prettyName(name) {
         if (!name) return 'Layer';
         const lower = String(name).toLowerCase();
-        if (lower === 'probability_of_occurrence') return 'Survey site locations';
+        if (lower === 'probability_of_occurrence') return 'Probability of occurrence';
         return String(name).replace(/_/g, ' ');
       }
+      const t = I18N[LANG];
+      const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
+      const buildPngPopupHtml = (probText, url, id) => `
+        <div class="wf-pop">
+          <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
+          <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
+          <div class="wf-img-wrap"><img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" /></div>
+        </div>`;
 
-      // ==== Color helpers (hex interpolation) ====
-      function hexToRgb(hex) {
-        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : {r:0,g:0,b:0};
-      }
-      function rgbToHex(r,g,b) {
-        const toHex = (v)=> ('0'+v.toString(16)).slice(-2);
-        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      }
-      function lerp(a,b,t){ return a+(b-a)*t; }
-      function lerpColor(c1,c2,t){
-        const A=hexToRgb(c1), B=hexToRgb(c2);
-        return rgbToHex(Math.round(lerp(A.r,B.r,t)), Math.round(lerp(A.g,B.g,t)), Math.round(lerp(A.b,B.b,t)));
-      }
+      // Color helpers for elevation
+      function hexToRgb(hex){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:{r:0,g:0,b:0};}
+      function rgbToHex(r,g,b){const toHex=(v)=>('0'+v.toString(16)).slice(-2);return `#${toHex(r)}${toHex(g)}${toHex(b)}`;}
+      function lerp(a,b,t){return a+(b-a)*t;}
+      function lerpColor(c1,c2,t){const A=hexToRgb(c1),B=hexToRgb(c2);return rgbToHex(Math.round(lerp(A.r,B.r,t)),Math.round(lerp(A.g,B.g,t)),Math.round(lerp(A.b,B.b,t)));}
 
-      // ===== Points color ramp =====
-      const colorBelow = '#eeeeee';  // <10
-      const colorAbove = '#4a1486';  // >80
-      const ramp = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f']; // 10–80
-      function colorForPercent(p) {
+      // Points color ramp
+      const colorBelow = '#eeeeee', colorAbove = '#4a1486';
+      const ramp = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f'];
+      function colorForPercent(p){
         if (p == null) return '#9e9e9e';
         if (p < 10)  return colorBelow;
         if (p <= 20) return ramp[0];
@@ -338,32 +269,14 @@
         return colorAbove;
       }
 
-      const t = I18N[LANG];
-      const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
-      const buildPngPopupHtml = (probText, url, id) => `
-        <div class="wf-pop">
-          <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
-          <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
-          <div class="wf-img-wrap">
-            <img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" />
-          </div>
-        </div>
-      `;
-
       async function handleWaterfallClick(feature, ev) {
         const props = (feature && feature.properties) || {};
         const id = props.ID ?? props.id ?? props.Id;
         const p = getProbAsPercent(props);
         const probText = formatProbabilityText(p);
-
-        const popup = L.popup({
-          maxWidth: Math.min(960, Math.floor(window.innerWidth * 0.9)),
-          className: 'wf-popup',
-          autoPan: true, keepInView: true, autoPanPadding: [30, 30]
-        }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
-
+        const popup = L.popup({ maxWidth: Math.min(960, Math.floor(window.innerWidth * 0.9)), className: 'wf-popup',
+          autoPan: true, keepInView: true, autoPanPadding: [30, 30] }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
         if (id == null) { popup.setContent('This point has no ID attribute.'); return; }
-
         const url = `data/waterfall/waterfall_ID${id}_RF.png`;
         const img = new Image();
         img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
@@ -377,22 +290,16 @@
         if (!elevResp.ok) throw new Error(`Failed to fetch ${elevUrl}: ${elevResp.status} ${elevResp.statusText}`);
         const elevBuf = await elevResp.arrayBuffer();
 
-        // georaster の parser を安全に取得（ビルド差異に対応）
-        const parse =
-          (typeof window.parseGeoraster === 'function' && window.parseGeoraster) ||
-          (typeof window.parseGeoRaster === 'function' && window.parseGeoRaster);
-
-        if (typeof parse !== 'function') {
-          throw new ReferenceError('Georaster parser not found. Check georaster script tag.');
+        // ここで parseGeoraster を直接使用（このスクリプトでは必ず定義されるはず）
+        if (typeof window.parseGeoraster !== 'function') {
+          throw new ReferenceError('parseGeoraster is not defined. Check script order and cache.');
         }
-
-        const georaster = await parse(elevBuf);
+        const georaster = await window.parseGeoraster(elevBuf);
 
         const min = (georaster.mins && georaster.mins[0]) ?? 0;
         const max = (georaster.maxs && georaster.maxs[0]) ?? (min + 1);
 
-        // ★ 自然な地形風パレット（低地: 濃緑 → 明緑 → 黄土 → 褐色 → 岩稜灰 → 雪白）
-        //   正規化 t ∈ [0,1] に対するカラー停止点
+        // 自然な地形風パレット
         const stops = [
           { t: 0.00, c: '#00441b' }, // deep green
           { t: 0.15, c: '#1b7837' },
@@ -403,35 +310,27 @@
           { t: 0.94, c: '#cfcfcf' }, // gray
           { t: 1.00, c: '#ffffff' }  // snow
         ];
-        function colorForElev(v) {
+        function colorForElev(v){
           if (v == null || !isFinite(v)) return null;
           const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
-          // 区間を探して線形補間
           for (let i=0; i<stops.length-1; i++) {
-            const a = stops[i], b = stops[i+1];
-            if (t >= a.t && t <= b.t) {
-              const tt = (t - a.t) / (b.t - a.t || 1e-6);
-              return lerpColor(a.c, b.c, tt);
-            }
+            const a=stops[i], b=stops[i+1];
+            if (t >= a.t && t <= b.t) return lerpColor(a.c, b.c, (t-a.t)/(b.t-a.t || 1e-6));
           }
           return stops[stops.length-1].c;
         }
 
         const elevationLayer = new GeoRasterLayer({
-          georaster,
-          pane: 'pane-raster',
-          opacity: 0.65,
-          resolution: 256,
+          georaster, pane: 'pane-raster', opacity: 0.65, resolution: 256,
           pixelValuesToColorFn: values => colorForElev(values[0])
         }).addTo(map);
-
         overlayLayers['Elevation'] = elevationLayer;
         layersControl.addOverlay(elevationLayer, 'Elevation');
       } catch (e) {
         console.warn('Skipping Elevation.tif loading:', e);
       }
 
-      // ===== Load Study Area (polygon) as bottom-most overlay =====
+      // ===== Simple GPKG loader =====
       async function addSimpleVectorGpkg(url, paneName, layerLabel, styleObj) {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status} ${resp.statusText}`);
@@ -457,23 +356,15 @@
         gpkg.close();
       }
 
-      // ★ Study area：塗りを消し、境界線を太く
-      await addSimpleVectorGpkg(
-        gpkgStudyUrl,
-        'pane-study',
-        'Study area',
-        { color: '#263238', weight: 3.8, fillOpacity: 0, fill: false }
-      );
+      // Study area：塗り無し & 太線
+      await addSimpleVectorGpkg(gpkgStudyUrl, 'pane-study', 'Study area',
+        { color: '#263238', weight: 3.8, fillOpacity: 0, fill: false });
 
-      // Streams line style (blue, above polygon)
-      await addSimpleVectorGpkg(
-        gpkgStreamUrl,
-        'pane-streams',
-        'Streams',
-        { color: '#1e88e5', weight: 2, opacity: 0.95 }
-      );
+      // Streams
+      await addSimpleVectorGpkg(gpkgStreamUrl, 'pane-streams', 'Streams',
+        { color: '#1e88e5', weight: 2, opacity: 0.95 });
 
-      // ===== Load points (on top) =====
+      // Points
       const respPts = await fetch(gpkgPointsUrl);
       if (!respPts.ok) throw new Error(`Failed to fetch GPKG: ${respPts.status} ${respPts.statusText}`);
       const arrayBufPts = await respPts.arrayBuffer();
@@ -483,18 +374,12 @@
 
       for (const tableName of featureTablesPts) {
         const layer = L.geoPackageFeatureLayer([], {
-          geoPackageUrl: gpkgPointsUrl,
-          layerName: tableName,
+          geoPackageUrl: gpkgPointsUrl, layerName: tableName,
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             return L.circleMarker(latlng, {
-              radius: 8,
-              weight: 2,
-              opacity: 1,
-              color: '#ffffff',
-              fillOpacity: 0.9,
-              fillColor: colorForPercent(p),
-              className: 'wf-point'
+              radius: 8, weight: 2, opacity: 1, color: '#ffffff',
+              fillOpacity: 0.9, fillColor: colorForPercent(p), className: 'wf-point'
             });
           },
           onEachFeature: (feature, lyr) => {
@@ -502,7 +387,6 @@
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
           }
         }).addTo(map);
-
         const displayName = prettyName(tableName);
         overlayLayers[displayName] = layer;
         layersControl.addOverlay(layer, displayName);
@@ -515,9 +399,9 @@
         div.innerHTML = `
           <div class="hdr">
             <span>Probability of occurrence (%)</span>
-            <div>
-              <button type="button" class="btn-legend" data-act="compact" aria-pressed="false" title="Toggle compact">Compact</button>
-              <button type="button" class="btn-legend" data-act="collapse" aria-pressed="false" title="Hide/show">Hide</button>
+            <div class="mini-btn">
+              <button type="button" title="Compact">◻</button>
+              <button type="button" title="Hide">–</button>
             </div>
           </div>
           <div class="body">
@@ -537,46 +421,11 @@
       };
       legend.addTo(map);
 
-      // === Wire up toggles ===
-      const lc = layersControl.getContainer();
+      // 凡例トグルを配線
       const lg = legend.getContainer();
-
-      // 左上のボタン：Layers Compact
-      document.getElementById('btn-layers-size').addEventListener('click', (e) => {
-        const pressed = lc.classList.toggle('is-compact');
-        e.currentTarget.setAttribute('aria-pressed', String(pressed));
-        e.currentTarget.textContent = pressed ? 'Layers: Normal' : 'Layers: Compact';
-      });
-
-      // 左上のボタン：Legend Compact
-      document.getElementById('btn-legend-size').addEventListener('click', (e) => {
-        const pressed = lg.classList.toggle('is-compact');
-        e.currentTarget.setAttribute('aria-pressed', String(pressed));
-        e.currentTarget.textContent = pressed ? 'Legend: Normal' : 'Legend: Compact';
-      });
-
-      // 左上のボタン：Legend Hide/Show（本文完全折畳み）
-      document.getElementById('btn-legend-collapse').addEventListener('click', (e) => {
-        const pressed = lg.classList.toggle('is-collapsed');
-        e.currentTarget.setAttribute('aria-pressed', String(pressed));
-        e.currentTarget.textContent = pressed ? 'Legend: Show' : 'Legend: Hide';
-      });
-
-      // 凡例内のボタン（同機能）
-      lg.querySelectorAll('.btn-legend').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const act = e.currentTarget.getAttribute('data-act');
-          if (act === 'compact') {
-            const pressed = lg.classList.toggle('is-compact');
-            e.currentTarget.setAttribute('aria-pressed', String(pressed));
-            e.currentTarget.textContent = pressed ? 'Normal' : 'Compact';
-          } else if (act === 'collapse') {
-            const pressed = lg.classList.toggle('is-collapsed');
-            e.currentTarget.setAttribute('aria-pressed', String(pressed));
-            e.currentTarget.textContent = pressed ? 'Show' : 'Hide';
-          }
-        });
-      });
+      const [btnLGCompact, btnLGCollapse] = lg.querySelectorAll('.mini-btn button');
+      btnLGCompact.addEventListener('click', (e) => { e.stopPropagation(); lg.classList.toggle('is-compact'); });
+      btnLGCollapse.addEventListener('click', (e) => { e.stopPropagation(); lg.classList.toggle('is-collapsed'); });
 
       gpkgPts.close();
     })().catch((err) => {
