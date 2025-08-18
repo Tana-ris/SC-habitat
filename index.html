@@ -26,31 +26,49 @@
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
-    .leaflet-control-layers-expanded { max-height: 300px; overflow: auto; }
-    .credits {
-      position: absolute; bottom: 12px; left: 12px;
-      background: rgba(255,255,255,.9); padding: 6px 8px;
-      border-radius: 8px; font: 12px/1.2 system-ui, sans-serif;
-      z-index: 500;
+
+    /* ===== Bigger layer switcher (top-right) ===== */
+    .leaflet-control-layers {
+      font-size: clamp(14px, 1.6vw, 18px);
+    }
+    .leaflet-control-layers-expanded {
+      max-height: 380px; overflow: auto;
+      padding: 10px 12px;
+    }
+    .leaflet-control-layers label {
+      line-height: 1.4; margin: 4px 0;
+    }
+    .leaflet-control-layers input {
+      transform: scale(1.2);
+      transform-origin: left center;
+      margin-right: 6px;
+    }
+    .leaflet-control-layers-toggle {
+      width: 34px; height: 34px;
     }
 
-    /* ===== Popup (large, responsive, keep-in-view) ===== */
-    .wf-popup .leaflet-popup-content-wrapper {
-      border-radius: 12px;
-      overflow: hidden;
+    /* ===== Legend (bottom-right) bigger ===== */
+    .wf-legend.leaflet-control {
+      background: rgba(255,255,255,.96);
+      padding: 10px 12px; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.12);
+      font: clamp(13px,1.4vw,16px)/1.35 system-ui, sans-serif;
     }
+    .wf-legend h4 { margin: 0 0 8px; font-size: 1em; }
+    .wf-legend .item { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+    .wf-legend .swatch { width: 16px; height: 16px; border-radius: 3px; border: 1px solid rgba(0,0,0,.18); }
+
+    /* ===== Popup (large, responsive, keep-in-view) ===== */
+    .wf-popup .leaflet-popup-content-wrapper { border-radius: 12px; overflow: hidden; }
     .wf-popup .leaflet-popup-content {
       box-sizing: border-box;
       width: clamp(280px, 60vw, 960px);
       height: clamp(260px, 60vh, 720px);
-      margin: 8px 10px;
-      overflow: hidden;
+      margin: 8px 10px; overflow: hidden;
     }
     @supports (height: 100dvh) {
       .wf-popup .leaflet-popup-content { height: clamp(260px, 60dvh, 720px); }
     }
-
-    /* Popup inner layout */
     .wf-pop {
       width: 100%; height: 100%;
       display: flex; flex-direction: column; gap: 8px;
@@ -58,54 +76,49 @@
     }
     .wf-prob {
       font-size: clamp(16px, 2vw, 22px);
-      line-height: 1.4;
-      font-weight: 700;
-      text-align: center;
+      line-height: 1.4; font-weight: 700; text-align: center;
       white-space: normal; overflow-wrap: anywhere; word-break: break-word;
-      padding: 6px 8px;
-      background: rgba(0,0,0,.03);
-      border-radius: 6px;
+      padding: 6px 8px; background: rgba(0,0,0,.03); border-radius: 6px;
     }
     .wf-img-wrap {
-      flex: 1 1 auto;
-      min-height: 0;
+      flex: 1 1 auto; min-height: 0;
       display: flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(0,0,0,.08); border-radius: 8px;
-      background: #fff;
+      border: 1px solid rgba(0,0,0,.08); border-radius: 8px; background: #fff;
     }
-    .wf-img {
-      width: 100%; height: 100%;
-      object-fit: contain;
-      display: block;
-    }
-    .wf-link {
-      margin-top: 2px;
-      font-size: clamp(14px, 1.6vw, 18px);
-      font-weight: 700;
-      text-align: center;
-    }
+    .wf-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .wf-link { margin-top: 2px; font-size: clamp(14px, 1.6vw, 18px); font-weight: 700; text-align: center; }
     .wf-link a { text-decoration: underline; }
-
-    /* Larger close button */
     .wf-popup .leaflet-popup-close-button {
-      width: 28px; height: 28px;
-      line-height: 28px; font-size: 18px; font-weight: 800;
-      color: #fff; background: rgba(0,0,0,.65);
-      border-radius: 999px;
-      top: 6px; right: 6px;
+      width: 28px; height: 28px; line-height: 28px;
+      font-size: 18px; font-weight: 800; color: #fff; background: rgba(0,0,0,.65);
+      border-radius: 999px; top: 6px; right: 6px;
     }
     .wf-popup .leaflet-popup-close-button:hover { background: rgba(0,0,0,.8); }
 
-    /* ===== Legend ===== */
-    .wf-legend.leaflet-control {
-      background: rgba(255,255,255,.95);
-      padding: 8px 10px; border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    /* ===== Inset image control (bottom-left) ===== */
+    .wf-inset.leaflet-control {
+      background: rgba(255,255,255,.96);
+      padding: 8px; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.12);
+    }
+    .wf-inset img {
+      display: block;
+      max-width: clamp(200px, 24vw, 360px);
+      max-height: clamp(120px, 24vh, 260px);
+      width: auto; height: auto;
+    }
+    .wf-inset .cap {
+      margin-top: 6px; text-align: center;
       font: 12px/1.3 system-ui, sans-serif;
     }
-    .wf-legend h4 { margin: 0 0 6px; font-size: 12px; }
-    .wf-legend .item { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
-    .wf-legend .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
+
+    /* Credits moved to top-left to avoid overlapping with inset */
+    .credits {
+      position: absolute; top: 12px; left: 12px;
+      background: rgba(255,255,255,.9); padding: 6px 8px;
+      border-radius: 8px; font: 12px/1.2 system-ui, sans-serif;
+      z-index: 500;
+    }
   </style>
 </head>
 <body>
@@ -114,12 +127,10 @@
 
   <script>
     (async function () {
-      // ===== Settings =====
       const gpkgUrl = 'data/Probability_of_occurrence.gpkg';
 
-      // i18n (JA/EN). We use EN by default for international audiences.
+      // i18n (UI is English)
       const I18N = {
-        ja: { probLabel: '生息確率', propKey: 'Probability', open: '画像を新しいタブで開く' },
         en: { probLabel: 'Occurrence probability', propKey: 'Probability', open: 'Open image in a new tab' },
       };
       const LANG = 'en';
@@ -133,33 +144,27 @@
       }
       setSqljsWasmLocateFile((filename) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${filename}`);
 
-      // ===== Map init (Namegawa area) =====
+      // Map init
       const map = L.map('map', { center: [36.066000, 139.360972], zoom: 14 });
 
       // Basemaps
       const baseLayers = {
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution: '&copy; OpenStreetMap contributors'
         }),
         'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-          maxZoom: 18,
-          attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">GSI</a>'
+          maxZoom: 18, attribution: '&copy; GSI'
         }),
         'GSI Pale': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
-          maxZoom: 18,
-          attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">GSI</a>'
+          maxZoom: 18, attribution: '&copy; GSI'
         }),
         'OpenTopoMap': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-          maxZoom: 17,
-          attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/">OSM</a>, SRTM | Tiles: &copy; OpenTopoMap'
+          maxZoom: 17, attribution: 'Map data &copy; OSM, SRTM; Tiles &copy; OpenTopoMap'
         }),
         'Esri World Imagery': L.tileLayer(
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          {
-            maxZoom: 19,
-            attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
-          }
+          { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
         )
       };
       baseLayers['GSI Standard Map'].addTo(map);
@@ -167,7 +172,22 @@
       const overlayLayers = {};
       const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false }).addTo(map);
 
-      // ===== Load GPKG =====
+      // Inset image (bottom-left)
+      const inset = L.control({ position: 'bottomleft' });
+      inset.onAdd = function () {
+        const div = L.DomUtil.create('div', 'wf-inset');
+        const url = 'data/beeswarm_RF.png';
+        div.innerHTML = `
+          <img src="${url}" alt="Beeswarm (Random Forest)"/>
+          <div class="cap">Beeswarm (Random Forest)</div>
+        `;
+        // prevent map drag/zoom when interacting with inset
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+      };
+      inset.addTo(map);
+
+      // Load GPKG
       const resp = await fetch(gpkgUrl);
       if (!resp.ok) throw new Error(`Failed to fetch GPKG: ${resp.status} ${resp.statusText}`);
       const arrayBuf = await resp.arrayBuffer();
@@ -175,35 +195,23 @@
       const featureTables = gpkg.getFeatureTables();
       if (!featureTables || featureTables.length === 0) throw new Error('No feature layers were found in this GeoPackage.');
 
-      // ===== Value extraction (to %) =====
+      // Value extraction (to %)
       function getProbAsPercent(props) {
         const cand = ['Probablity','Probability','probability','PROBABILITY','prob','value'];
         let v = null;
         for (const key of cand) {
-          if (props && Object.prototype.hasOwnProperty.call(props, key)) {
-            v = Number(props[key]); break;
-          }
+          if (props && Object.prototype.hasOwnProperty.call(props, key)) { v = Number(props[key]); break; }
         }
         if (!isFinite(v)) return null;
         if (v >= 0 && v <= 1) return v * 100;   // 0–1 -> %
-        if (v > 1 && v <= 100) return v;        // 1–100 -> % as-is
+        if (v > 1 && v <= 100) return v;        // 1–100 -> %
         return null;
       }
 
-      // ===== Classed colors (10–80 by 10; 8 classes + out-of-range) =====
-      // Classes: <10, 10–20, 20–30, 30–40, 40–50, 50–60, 60–70, 70–80, >80
+      // Classed colors (10–80 by 10; out-of-range included)
       const colorBelow = '#eeeeee';  // <10
       const colorAbove = '#4a1486';  // >80
-      const ramp = [
-        '#fff7ec', // 10–20
-        '#fee8c8', // 20–30
-        '#fdd49e', // 30–40
-        '#fdbb84', // 40–50
-        '#fc8d59', // 50–60
-        '#ef6548', // 60–70
-        '#d7301f', // 70–80
-        '#990000', // (not used directly; kept for reference)
-      ];
+      const ramp = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f']; // 10–80
       function colorForPercent(p) {
         if (p == null) return '#9e9e9e';
         if (p < 10)  return colorBelow;
@@ -217,20 +225,18 @@
         return colorAbove;
       }
 
-      // ===== Popup HTML =====
+      // Popup
+      const t = I18N[LANG];
       const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
-      const buildPngPopupHtml = (probText, url, id, lang = 'en') => {
-        const t = I18N[lang] ?? I18N.en;
-        return `
-          <div class="wf-pop">
-            <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
-            <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
-            <div class="wf-img-wrap">
-              <img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" />
-            </div>
+      const buildPngPopupHtml = (probText, url, id) => `
+        <div class="wf-pop">
+          <div class="wf-prob">${t.probLabel} (<code>${t.propKey}</code>): <strong>${probText}</strong></div>
+          <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
+          <div class="wf-img-wrap">
+            <img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" />
           </div>
-        `;
-      };
+        </div>
+      `;
 
       async function handleWaterfallClick(feature, ev) {
         const props = (feature && feature.properties) || {};
@@ -241,25 +247,19 @@
         const popup = L.popup({
           maxWidth: Math.min(960, Math.floor(window.innerWidth * 0.9)),
           className: 'wf-popup',
-          autoPan: true,
-          keepInView: true,
-          autoPanPadding: [30, 30]
+          autoPan: true, keepInView: true, autoPanPadding: [30, 30]
         }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
 
-        if (id == null) {
-          popup.setContent('This point has no ID attribute.');
-          return;
-        }
+        if (id == null) { popup.setContent('This point has no ID attribute.'); return; }
 
         const url = `data/waterfall/waterfall_ID${id}_RF.png`;
-
         const img = new Image();
-        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id, LANG)); };
+        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
         img.onerror = () => { popup.setContent(`File not found: <code>${url}</code>`); };
         img.src = url;
       }
 
-      // ===== Add layers (bigger points, white stroke) =====
+      // Add layers (points with white stroke; keep white even if plugin tries defaults)
       for (const tableName of featureTables) {
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: gpkgUrl,
@@ -267,15 +267,18 @@
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             return L.circleMarker(latlng, {
-              radius: 8,          // bigger
-              weight: 2,          // stroke width
+              radius: 8,
+              weight: 2,
               opacity: 1,
-              color: '#ffffff',   // white stroke
+              color: '#ffffff',     // white stroke
               fillOpacity: 0.9,
-              fillColor: colorForPercent(p)
+              fillColor: colorForPercent(p),
+              className: 'wf-point' // for potential CSS hooks
             });
           },
           onEachFeature: (feature, lyr) => {
+            // safety: ensure stroke stays white
+            lyr.setStyle({ color: '#ffffff' });
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
           }
         }).addTo(map);
@@ -284,7 +287,7 @@
         layersControl.addOverlay(layer, tableName);
       }
 
-      // ===== Legend =====
+      // Legend
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
