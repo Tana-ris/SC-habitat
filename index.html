@@ -23,6 +23,9 @@
   <!-- Leaflet GeoPackage plugin (load layers from URL) -->
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
+  <!-- GeoTIFF を Leaflet で描画（ブラウザ用ビルド） -->
+  <script src="https://cdn.jsdelivr.net/npm/georaster-layer-for-leaflet@3.10.0/georaster-layer-for-leaflet.browserify.min.js"></script>
+
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
@@ -160,6 +163,7 @@
       const gpkgPointsUrl = 'data/Probability_of_occurrence.gpkg';
       const gpkgStudyUrl  = 'data/Study_area.gpkg';  // polygon (bottom-most overlay)
       const gpkgStreamUrl = 'data/stream.gpkg';      // line (just above polygon)
+      const elevUrl       = 'data/Elevation.tif';    // GeoTIFF (raster)
 
       // i18n (UI is English)
       const I18N = {
@@ -179,11 +183,11 @@
       // Map init
       const map = L.map('map', { center: [36.07342672630755, 139.35873321947636], zoom: 13 });
 
-      // --- Custom panes to control strict z-order (tiles < study < stream < points) ---
-      // tilePane (zIndex ~200) is below; we put study/stream below default overlayPane (400).
-      map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310; // bottom-most overlay
+      // --- Custom panes to control strict z-order (tiles < raster < study < stream < points) ---
+      // tilePane (zIndex ~200) is below; we put raster below study/stream, which are below default overlayPane (~400).
+      map.createPane('pane-raster');  map.getPane('pane-raster').style.zIndex  = 305; // below study
+      map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310; // bottom-most vector overlay
       map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320; // above study
-      // points will use default overlayPane (~400), so they are on top automatically.
 
       // Basemaps
       const baseLayers = {
@@ -284,6 +288,41 @@
         img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
         img.onerror = () => { popup.setContent(`File not found: <code>${url}</code>`); };
         img.src = url;
+      }
+
+      // ===== Elevation (GeoTIFF raster) =====
+      try {
+        const elevResp = await fetch(elevUrl);
+        if (!elevResp.ok) throw new Error(`Failed to fetch ${elevUrl}: ${elevResp.status} ${elevResp.statusText}`);
+        const elevBuf = await elevResp.arrayBuffer();
+
+        // ブラウザ版はグローバル関数 parseGeoraster が使えます
+        const georaster = await parseGeoraster(elevBuf);
+
+        const min = (georaster.mins && georaster.mins[0]) ?? 0;
+        const max = (georaster.maxs && georaster.maxs[0]) ?? (min + 1);
+
+        // 簡易カラーランプ（低地→高地）
+        const elevRamp = ['#081d58','#225ea8','#1d91c0','#41b6c4','#7fcdbb','#c7e9b4','#ffffcc'];
+        const colorForElev = (v) => {
+          if (v == null || !isFinite(v)) return null;
+          const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
+          const idx = Math.min(elevRamp.length - 1, Math.floor(t * elevRamp.length));
+          return elevRamp[idx];
+        };
+
+        const elevationLayer = new GeoRasterLayer({
+          georaster,
+          pane: 'pane-raster',
+          opacity: 0.6,
+          resolution: 256, // 見た目と速度のバランス
+          pixelValuesToColorFn: values => colorForElev(values[0])
+        }).addTo(map);
+
+        overlayLayers['Elevation'] = elevationLayer;
+        layersControl.addOverlay(elevationLayer, 'Elevation');
+      } catch (e) {
+        console.warn('Elevation.tif の読み込みをスキップ:', e);
       }
 
       // ===== Load Study Area (polygon) as bottom-most overlay =====
@@ -393,9 +432,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
