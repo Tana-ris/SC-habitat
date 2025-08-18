@@ -34,58 +34,59 @@
       z-index: 500;
     }
 
-    /* ===== ポップアップの見た目調整（大きめ＆はみ出し防止） ===== */
+    /* ===== ポップアップ（大きめ＆はみ出し防止） ===== */
     .wf-popup .leaflet-popup-content-wrapper {
       border-radius: 12px;
-      /* LeafletのmaxWidth計算に左右されないよう念のため */
       overflow: hidden;
     }
     .wf-popup .leaflet-popup-content {
       box-sizing: border-box;
-      /* 画面に応じて 280px〜960px の間で 60vw/60vh に収める */
       width: clamp(280px, 60vw, 960px);
       height: clamp(260px, 60vh, 720px);
       margin: 8px 10px;
-      overflow: hidden; /* スクロールバーは出さない */
+      overflow: hidden;
     }
     @supports (height: 100dvh) {
-      .wf-popup .leaflet-popup-content {
-        height: clamp(260px, 60dvh, 720px);
-      }
+      .wf-popup .leaflet-popup-content { height: clamp(260px, 60dvh, 720px); }
     }
 
-    /* ポップアップの内部レイアウト */
+    /* ポップアップ内部 */
     .wf-pop {
       width: 100%; height: 100%;
       display: flex; flex-direction: column; gap: 8px;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
     }
     .wf-prob {
-      font-size: 14px; line-height: 1.4; font-weight: 600;
-      /* 長い値でもはみ出さないように */
+      font-size: clamp(16px, 2vw, 22px); /* 大きく */
+      line-height: 1.4;
+      font-weight: 700;
+      text-align: center;               /* 中央寄せ */
       white-space: normal; overflow-wrap: anywhere; word-break: break-word;
-      padding: 4px 6px;
-      background: rgba(0,0,0,.03); border-radius: 6px;
+      padding: 6px 8px;
+      background: rgba(0,0,0,.03);
+      border-radius: 6px;
     }
     .wf-img-wrap {
       flex: 1 1 auto;
-      min-height: 0; /* flex子のオーバーフロー抑止 */
+      min-height: 0;
       display: flex; align-items: center; justify-content: center;
       border: 1px solid rgba(0,0,0,.08); border-radius: 8px;
       background: #fff;
     }
     .wf-img {
       width: 100%; height: 100%;
-      object-fit: contain; /* 余白を残して確実に収める */
+      object-fit: contain;
       display: block;
     }
     .wf-link {
       margin-top: 2px;
-      font-size: 13px; font-weight: 700;
+      font-size: clamp(14px, 1.6vw, 18px); /* 少し大きく */
+      font-weight: 700;
+      text-align: center;                  /* 中央寄せ */
     }
     .wf-link a { text-decoration: underline; }
 
-    /* ✖ボタンを大きく分かりやすく */
+    /* ✖ボタンを大きく */
     .wf-popup .leaflet-popup-close-button {
       width: 28px; height: 28px;
       line-height: 28px; font-size: 18px; font-weight: 800;
@@ -116,7 +117,14 @@
       // ===== 設定 =====
       const gpkgUrl = 'data/Probability_of_occurrence.gpkg';
 
-      // GeoPackage の初期化（バージョン差とWASMの場所に対応）
+      // 多言語（日本語/英語）
+      const I18N = {
+        ja: { probLabel: '生息確率', propKey: 'Probability', open: '画像を新しいタブで開く' },
+        en: { probLabel: 'Probability　of　occurrence', propKey: 'Probability', open: 'Open image in a new tab' },
+      };
+      const LANG = 'en'; // 'en' にすると英語表記
+
+      // GeoPackage 初期化
       const { GeoPackageManager, GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage || {};
       const GPM = GeoPackageManager || GeoPackageAPI;
       if (!GPM || typeof GPM.open !== 'function') {
@@ -128,7 +136,7 @@
       // ===== 地図初期化（滑川町周辺） =====
       const map = L.map('map', { center: [36.066000, 139.360972], zoom: 14 });
 
-      // 背景地図（ベースレイヤー）
+      // ベースレイヤー
       const baseLayers = {
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
@@ -154,10 +162,8 @@
           }
         )
       };
-      // 初期表示の背景
       baseLayers['GSI 標準地図'].addTo(map);
 
-      // レイヤーコントロール（オーバーレイは後で詰める）
       const overlayLayers = {};
       const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false }).addTo(map);
 
@@ -171,10 +177,8 @@
 
       // ===== 値の取得と整形 =====
       function getProbAsPercent(props) {
-        // 候補プロパティ名（誤綴りや大小文字差異にフォールバック）
-        const cand = [
-          'Probablity', 'Probability', 'probability', 'PROBABILITY', 'prob', 'value'
-        ];
+        // 候補キー（綴り揺れ対応）
+        const cand = ['Probablity','Probability','probability','PROBABILITY','prob','value'];
         let v = null;
         for (const key of cand) {
           if (props && Object.prototype.hasOwnProperty.call(props, key)) {
@@ -182,41 +186,51 @@
           }
         }
         if (!isFinite(v)) return null;
-        // 0-1 なら % に、1-100 ならそのまま
-        if (v >= 0 && v <= 1) return v * 100;
-        if (v > 1 && v <= 100) return v;
+        if (v >= 0 && v <= 1) return v * 100;   // 0-1 → %
+        if (v > 1 && v <= 100) return v;        // 1-100 → そのまま %
         return null;
       }
 
-      // ===== 等級色（10〜80 を 10 刻みの 8段階 + 外れ値） =====
-      const breaks = [10,20,30,40,50,60,70,80]; // 上端を含む
-      const ramp   = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f','#990000']; // YlOrRd 8
-      const colorBelow = '#eeeeee';  // <10
+      // ===== 等級色（10–80 を 10刻みの 7段 + 外れ値） =====
+      // クラス: <10, 10–20, 20–30, 30–40, 40–50, 50–60, 60–70, 70–80, >80
+      const colorBelow = '#e0e0e0';  // <10
       const colorAbove = '#4a1486';  // >80
+      const ramp = [
+        '#fff7bc', // 10–20
+        '#fee391', // 20–30
+        '#fec44f', // 30–40
+        '#fe9929', // 40–50
+        '#ec7014', // 50–60
+        '#cc4c02', // 60–70
+        '#993404', // 70–80
+      ];
       function colorForPercent(p) {
         if (p == null) return '#9e9e9e';
-        if (p < breaks[0]) return colorBelow;
-        if (p > breaks[breaks.length - 1]) return colorAbove;
-        for (let i = 0; i < breaks.length; i++) {
-          if (p <= breaks[i]) return ramp[i];
-        }
-        return ramp[ramp.length - 1];
+        if (p < 10)  return colorBelow;
+        if (p <= 20) return ramp[0];
+        if (p <= 30) return ramp[1];
+        if (p <= 40) return ramp[2];
+        if (p <= 50) return ramp[3];
+        if (p <= 60) return ramp[4];
+        if (p <= 70) return ramp[5];
+        if (p <= 80) return ramp[6];
+        return colorAbove;
       }
 
       // ===== ポップアップHTML =====
-      const formatProbabilityText = (v) => {
-        if (v == null) return '—';
-        return v.toFixed(1) + '%';
-      };
-      const buildPngPopupHtml = (probText, url, id) => `
-        <div class="wf-pop">
-          <div class="wf-prob">生息確率（<code>Probability</code>）: <strong>${probText}</strong></div>
-          <div class="wf-img-wrap">
-            <img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" />
+      const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
+      const buildPngPopupHtml = (probText, url, id, lang = 'ja') => {
+        const t = I18N[lang] ?? I18N.ja;
+        return `
+          <div class="wf-pop">
+            <div class="wf-prob">${t.probLabel}（<code>${t.propKey}</code>）: <strong>${probText}</strong></div>
+            <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">${t.open}</a></div>
+            <div class="wf-img-wrap">
+              <img class="wf-img" decoding="async" loading="lazy" src="${url}" alt="waterfall_ID${id}_RF" />
+            </div>
           </div>
-          <div class="wf-link"><a target="_blank" rel="noopener noreferrer" href="${url}">画像を新しいタブで開く</a></div>
-        </div>
-      `;
+        `;
+      };
 
       async function handleWaterfallClick(feature, ev) {
         const props = (feature && feature.properties) || {};
@@ -225,7 +239,6 @@
         const probText = formatProbabilityText(p);
 
         const popup = L.popup({
-          // 画面サイズに応じて十分大きく。LeafletのmaxWidthに収めつつCSSでclamp
           maxWidth: Math.min(960, Math.floor(window.innerWidth * 0.9)),
           className: 'wf-popup',
           autoPan: true,
@@ -241,12 +254,12 @@
         const url = `data/waterfall/waterfall_ID${id}_RF.png`;
 
         const img = new Image();
-        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id)); };
+        img.onload = () => { popup.setContent(buildPngPopupHtml(probText, url, id, LANG)); };
         img.onerror = () => { popup.setContent(`ファイルが見つかりません：<code>${url}</code>`); };
         img.src = url;
       }
 
-      // ===== レイヤー追加（等級色でスタイル）=====
+      // ===== レイヤー追加（ポイントサイズ↑・枠線は白） =====
       for (const tableName of featureTables) {
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: gpkgUrl,
@@ -254,11 +267,11 @@
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             return L.circleMarker(latlng, {
-              radius: 6,
-              weight: 1,
+              radius: 8,          // ← 少し大きく
+              weight: 2,          // 枠線太さ
               opacity: 1,
-              color: '#333',
-              fillOpacity: 0.85,
+              color: '#ffffff',   // ← 枠線は白
+              fillOpacity: 0.9,
               fillColor: colorForPercent(p)
             });
           },
@@ -275,19 +288,20 @@
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
-        const lines = [];
-        lines.push('<h4>値（%）</h4>');
-        lines.push(`<div class="item"><span class="swatch" style="background:${colorBelow}"></span><span>&lt; 10</span></div>`);
-        for (let i = 0; i < breaks.length; i++) {
-          const from = (i === 0) ? 10 : breaks[i-1];
-          const to   = breaks[i];
-          const label = (i === 0) ? '10–20' : `${from}–${to}`;
-          lines.push(`<div class="item"><span class="swatch" style="background:${ramp[i]}"></span><span>${label}</span></div>`);
-        }
-        lines.push(`<div class="item"><span class="swatch" style="background:${colorAbove}"></span><span>80+</span></div>`);
-        div.innerHTML = lines.join('');
-        // マウス操作が地図に干渉しないように
-        L.DomEvent.disableClickPropagation(div);
+        const items = [];
+        items.push('<h4>値（%）</h4>');
+        items.push(`<div class="item"><span class="swatch" style="background:${colorBelow}"></span><span>&lt; 10</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[0]}"></span><span>10–20</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[1]}"></span><span>20–30</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[2]}"></span><span>30–40</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[3]}"></span><span>40–50</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[4]}"></span><span>50–60</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[5]}"></span><span>60–70</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${ramp[6]}"></span><span>70–80</span></div>`);
+        items.push(`<div class="item"><span class="swatch" style="background:${colorAbove}"></span><span>&gt; 80</span></div>`);
+        div.innerHTML = items.join('');
+        L.D
+omEvent.disableClickPropagation(div);
         return div;
       };
       legend.addTo(map);
