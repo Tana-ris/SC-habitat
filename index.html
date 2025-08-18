@@ -35,17 +35,13 @@
       max-height: 380px; overflow: auto;
       padding: 10px 12px;
     }
-    .leaflet-control-layers label {
-      line-height: 1.4; margin: 4px 0;
-    }
+    .leaflet-control-layers label { line-height: 1.4; margin: 4px 0; }
     .leaflet-control-layers input {
       transform: scale(1.2);
       transform-origin: left center;
       margin-right: 6px;
     }
-    .leaflet-control-layers-toggle {
-      width: 34px; height: 34px;
-    }
+    .leaflet-control-layers-toggle { width: 34px; height: 34px; }
 
     /* ===== Legend (bottom-right) bigger ===== */
     .wf-legend.leaflet-control {
@@ -103,8 +99,8 @@
     }
     .wf-inset img {
       display: block;
-      max-width: clamp(200px, 24vw, 360px);
-      max-height: clamp(120px, 24vh, 260px);
+      max-width: clamp(240px, 32vw, 520px);
+      max-height: clamp(150px, 32vh, 340px);
       width: auto; height: auto;
     }
     .wf-inset .cap {
@@ -127,7 +123,10 @@
 
   <script>
     (async function () {
-      const gpkgUrl = 'data/Probability_of_occurrence.gpkg';
+      // ===== Paths =====
+      const gpkgPointsUrl = 'data/Probability_of_occurrence.gpkg';
+      const gpkgStudyUrl  = 'data/Study_area.gpkg';  // polygon (bottom-most overlay)
+      const gpkgStreamUrl = 'data/stream.gpkg';      // line (just above polygon)
 
       // i18n (UI is English)
       const I18N = {
@@ -147,11 +146,16 @@
       // Map init
       const map = L.map('map', { center: [36.066000, 139.360972], zoom: 14 });
 
+      // --- Custom panes to control strict z-order (tiles < study < stream < points) ---
+      // tilePane (zIndex ~200) is below; we put study/stream below default overlayPane (400).
+      map.createPane('pane-study');   map.getPane('pane-study').style.zIndex   = 310; // bottom-most overlay
+      map.createPane('pane-streams'); map.getPane('pane-streams').style.zIndex = 320; // above study
+      // points will use default overlayPane (~400), so they are on top automatically.
+
       // Basemaps
       const baseLayers = {
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
+          maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
         }),
         'GSI Standard Map': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
           maxZoom: 18, attribution: '&copy; GSI'
@@ -167,8 +171,9 @@
           { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
         )
       };
-      baseLayers['GSI Standard Map'].addTo(map);
+      baseLayers['OpenStreetMap'].addTo(map);
 
+      // Controls
       const overlayLayers = {};
       const layersControl = L.control.layers(baseLayers, overlayLayers, { collapsed: false }).addTo(map);
 
@@ -181,21 +186,12 @@
           <img src="${url}" alt="Beeswarm (Random Forest)"/>
           <div class="cap">Beeswarm (Random Forest)</div>
         `;
-        // prevent map drag/zoom when interacting with inset
         L.DomEvent.disableClickPropagation(div);
         return div;
       };
       inset.addTo(map);
 
-      // Load GPKG
-      const resp = await fetch(gpkgUrl);
-      if (!resp.ok) throw new Error(`Failed to fetch GPKG: ${resp.status} ${resp.statusText}`);
-      const arrayBuf = await resp.arrayBuffer();
-      const gpkg = await GPM.open(new Uint8Array(arrayBuf));
-      const featureTables = gpkg.getFeatureTables();
-      if (!featureTables || featureTables.length === 0) throw new Error('No feature layers were found in this GeoPackage.');
-
-      // Value extraction (to %)
+      // ===== Helpers =====
       function getProbAsPercent(props) {
         const cand = ['Probablity','Probability','probability','PROBABILITY','prob','value'];
         let v = null;
@@ -208,7 +204,6 @@
         return null;
       }
 
-      // Classed colors (10–80 by 10; out-of-range included)
       const colorBelow = '#eeeeee';  // <10
       const colorAbove = '#4a1486';  // >80
       const ramp = ['#fff7ec','#fee8c8','#fdd49e','#fdbb84','#fc8d59','#ef6548','#d7301f']; // 10–80
@@ -225,7 +220,6 @@
         return colorAbove;
       }
 
-      // Popup
       const t = I18N[LANG];
       const formatProbabilityText = (v) => (v == null ? '—' : (v.toFixed(1) + '%'));
       const buildPngPopupHtml = (probText, url, id) => `
@@ -259,25 +253,75 @@
         img.src = url;
       }
 
-      // Add layers (points with white stroke; keep white even if plugin tries defaults)
-      for (const tableName of featureTables) {
+      // ===== Load Study Area (polygon) as bottom-most overlay =====
+      async function addSimpleVectorGpkg(url, paneName, layerLabel, styleObj) {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status} ${resp.statusText}`);
+        const buf = await resp.arrayBuffer();
+        const gpkg = await GPM.open(new Uint8Array(buf));
+        const tables = gpkg.getFeatureTables();
+        if (!tables || !tables.length) { gpkg.close(); throw new Error(`No feature layers found in ${url}`); }
+
+        const group = L.layerGroup(); // we add layers into this group, then add group to map & control
+        for (const tableName of tables) {
+          const lyr = L.geoPackageFeatureLayer([], {
+            geoPackageUrl: url,
+            layerName: tableName,
+            pane: paneName,
+            interactive: false,
+            style: typeof styleObj === 'function' ? styleObj : () => styleObj
+          });
+          group.addLayer(lyr);
+        }
+        group.addTo(map); // visible by default
+        overlayLayers[layerLabel] = group;
+        layersControl.addOverlay(group, layerLabel);
+        gpkg.close();
+      }
+
+      // Study area polygon style (neutral, semi-transparent)
+      await addSimpleVectorGpkg(
+        gpkgStudyUrl,
+        'pane-study',
+        'Study area',
+        { color: '#424242', weight: 1.3, fillColor: '#bdbdbd', fillOpacity: 0.25 }
+      );
+
+      // Streams line style (blue, above polygon)
+      await addSimpleVectorGpkg(
+        gpkgStreamUrl,
+        'pane-streams',
+        'Streams',
+        { color: '#1e88e5', weight: 2, opacity: 0.95 }
+      );
+
+      // ===== Load points (on top) =====
+      const respPts = await fetch(gpkgPointsUrl);
+      if (!respPts.ok) throw new Error(`Failed to fetch GPKG: ${respPts.status} ${respPts.statusText}`);
+      const arrayBufPts = await respPts.arrayBuffer();
+      const gpkgPts = await GPM.open(new Uint8Array(arrayBufPts));
+      const featureTablesPts = gpkgPts.getFeatureTables();
+      if (!featureTablesPts || featureTablesPts.length === 0) throw new Error('No feature layers were found in the points GeoPackage.');
+
+      for (const tableName of featureTablesPts) {
         const layer = L.geoPackageFeatureLayer([], {
-          geoPackageUrl: gpkgUrl,
+          geoPackageUrl: gpkgPointsUrl,
           layerName: tableName,
+          // (default pane: overlayPane -> above streams)
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             return L.circleMarker(latlng, {
               radius: 8,
               weight: 2,
               opacity: 1,
-              color: '#ffffff',     // white stroke
+              color: '#000000',     // white stroke
               fillOpacity: 0.9,
               fillColor: colorForPercent(p),
-              className: 'wf-point' // for potential CSS hooks
+              className: 'wf-point'
             });
           },
           onEachFeature: (feature, lyr) => {
-            // safety: ensure stroke stays white
+            // keep stroke white
             lyr.setStyle({ color: '#ffffff' });
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
           }
@@ -287,7 +331,7 @@
         layersControl.addOverlay(layer, tableName);
       }
 
-      // Legend
+      // ===== Legend =====
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'wf-legend');
@@ -308,7 +352,7 @@
       };
       legend.addTo(map);
 
-      gpkg.close();
+      gpkgPts.close();
     })().catch((err) => {
       console.error(err);
       alert('An error occurred while loading. See console for details.\n' + err.message);
