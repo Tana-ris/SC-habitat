@@ -1,4 +1,86 @@
-<!doctype html>
+// ===== Data Export Button (査読者向け、デスクトップのみ) =====
+      if (!CONFIG.isMobile) {
+        const exportBtn = L.control({ position: 'bottomright' });
+        exportBtn.onAdd = function() {
+          const div = L.DomUtil.create('div', 'export-btn leaflet-control');
+          div.innerHTML = `
+            <button id="exportData" title="Export visible points as CSV">
+              <span>📊</span> Export Data
+            </button>
+          `;
+          L.DomEvent.disableClickPropagation(div);
+          return div;
+        };
+        exportBtn.addTo(map);
+        
+        // Export functionality
+        setTimeout(() => {
+          const btn = document.getElementById('exportData');
+          if (btn) {
+            btn.addEventListener('click', function() {
+              exportVisiblePoints();
+            });
+          }
+        }, 100);
+      }
+      
+      function exportVisiblePoints() {
+        if (!pointsLayer) return;
+        
+        let csv = 'ID,Latitude,Longitude,Probability(%)\n';
+        let count = 0;
+        
+        pointsLayer.eachLayer(function(layer) {
+          const prob = layer.feature.properties.probability;
+          if (prob >= currentMinProb && prob <= currentMaxProb) {
+            const id = layer.feature.properties.ID || layer.feature.properties.id || count;
+            const latlng = layer.getLatLng();
+            csv += `${id},${latlng.lat.toFixed(6)},${latlng.lng.toFixed(6)},${prob.toFixed(2)}\n`;
+            count++;
+          }
+        });
+        
+        // Create download
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sasakia_charonda_habitat_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        // Feedback
+        alert(`Exported ${count} points to CSV`);
+      }
+      
+      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====/antml:parameter>
+<parameter name="old_str">      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====/antml:parameter>
+</invoke>      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====
+      if (!CONFIG.isMobile) {
+        const keyFindings = L.control({ position: 'topleft' });
+        keyFindings.onAdd = function() {
+          const div = L.DomUtil.create('div', 'key-findings leaflet-control');
+          div.innerHTML = `
+            <h5>Key Findings</h5>
+            <ul>
+              <li>High suitability areas concentrate near streams</li>
+              <li>Overwintering microclimate is the primary factor</li>
+              <li>Host tree maturity (DBH ≥40cm) critical</li>
+              <li>Forest floor cover (≥40%) enhances habitat</li>
+            </ul>
+          `;
+          L.DomEvent.disableClickPropagation(div);
+          return div;
+        };
+        // Add after a delay to ensure map is fully loaded
+        setTimeout(() => {
+          keyFindings.addTo(map);
+        }, 1000);
+      }
+      
+      // ===== Legend =====/antml:parameter>
+<parameter name="old_str">      // ===== Legend =====/antml:parameter>
+</invoke><!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -33,6 +115,96 @@
       height: 100%; 
       width: 100%; 
       background: #f0f4f7; 
+    }
+
+    /* ===== Model Info Badge (査読者向け) ===== */
+    .model-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 12px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      z-index: 1000;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .model-badge:hover {
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+    .model-badge .model-name {
+      font-weight: 700;
+      color: #2c3e50;
+    }
+    .model-badge .model-metric {
+      background: #27ae60;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .model-badge .info-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #3498db;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    
+    /* Model details popup */
+    .model-details {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 5px;
+      background: white;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 280px;
+      font-size: 11px;
+      z-index: 1001;
+    }
+    .model-badge:hover .model-details {
+      display: block;
+    }
+    .model-details h5 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: #2c3e50;
+      border-bottom: 1px solid #e1e4e8;
+      padding-bottom: 4px;
+    }
+    .model-details .detail-row {
+      margin: 4px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    .model-details .detail-label {
+      color: #5a6c7d;
+    }
+    .model-details .detail-value {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    .model-details .threshold-info {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #e1e4e8;
+      color: #5a6c7d;
     }
 
     /* ===== Layers control (左上) - シンプル化 ===== */
@@ -279,8 +451,12 @@
     }
     .wf-inset img { 
       display: block; 
-      max-width: 280px; 
-      max-height: 180px;
+      max-width: clamp(300px, 36vw, 600px); 
+      max-height: clamp(180px, 36vh, 380px);
+    }
+    .wf-inset img.is-beeswarm {
+      max-width: clamp(320px, 38vw, 620px);
+      max-height: clamp(200px, 38vh, 400px);
     }
     .wf-inset .cap { 
       margin-top: 4px; 
@@ -290,6 +466,65 @@
       font-weight: 600;
     }
 
+    /* ===== Data Export Button (査読者向け) ===== */
+    .export-btn.leaflet-control {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 6px 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .export-btn:hover {
+      background: #fff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    }
+    .export-btn button {
+      background: #0366d6;
+      color: white;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .export-btn button:hover {
+      background: #0256c7;
+    }
+    .export-btn button:active {
+      transform: translateY(1px);
+    }
+    
+    /* ===== Key findings annotation (査読者向け) ===== */
+    .key-findings.leaflet-control {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      font-size: 11px;
+      max-width: 250px;
+      border-left: 3px solid #e74c3c;
+    }
+    .key-findings h5 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e74c3c;
+    }
+    .key-findings ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #2c3e50;
+      line-height: 1.4;
+    }
+    .key-findings li {
+      margin: 3px 0;
+    }
+    
     /* ===== ポイント ===== */
     .wf-point { 
       cursor: pointer;
@@ -308,6 +543,13 @@
 
     /* ===== モバイル対応 ===== */
     @media (max-width: 768px) {
+      /* Model badge, key findings, export btnをモバイルで非表示 */
+      .model-badge,
+      .key-findings,
+      .export-btn {
+        display: none;
+      }
+      
       /* モバイルでは統計とフィルターパネルを非表示 */
       .stats-panel, .filter-panel {
         display: none !important;
@@ -348,8 +590,12 @@
       }
       
       .wf-inset img {
-        max-width: 200px;
-        max-height: 120px;
+        max-width: clamp(240px, 32vw, 400px);
+        max-height: clamp(150px, 32vh, 250px);
+      }
+      .wf-inset img.is-beeswarm {
+        max-width: clamp(260px, 34vw, 420px);
+        max-height: clamp(160px, 34vh, 260px);
       }
       
       .minimize-btn {
@@ -364,17 +610,53 @@
         bottom: 60px;
       }
       .wf-inset {
-        max-width: 180px;
+        max-width: 220px;
       }
       .wf-inset img {
-        max-width: 170px;
-        max-height: 100px;
+        max-width: 210px;
+        max-height: 130px;
+      }
+      .wf-inset img.is-beeswarm {
+        max-width: 220px;
+        max-height: 140px;
       }
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  
+  <!-- Model Performance Badge (査読者向け) -->
+  <div class="model-badge">
+    <span class="model-name">Random Forest</span>
+    <span class="model-metric">AUC 0.720</span>
+    <span class="info-icon">i</span>
+    <div class="model-details">
+      <h5>Model Performance & Methods</h5>
+      <div class="detail-row">
+        <span class="detail-label">Cross-validation:</span>
+        <span class="detail-value">Spatial Group K-fold</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Imbalance handling:</span>
+        <span class="detail-value">SMOTE</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Feature importance:</span>
+        <span class="detail-value">SHAP values</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Sample size:</span>
+        <span class="detail-value">n = 144 points</span>
+      </div>
+      <div class="threshold-info">
+        <strong>Key thresholds:</strong><br>
+        • Litter depth ≥ 5 cm<br>
+        • DBH ≥ 40 cm<br>
+        • Vegetation cover ≥ 40%
+      </div>
+    </div>
+  </div>
 
   <script>
     (async function () {
@@ -439,6 +721,40 @@
         zoomControl: true,
         attributionControl: true
       });
+
+      // ===== Key Areas Highlight (査読者向け) =====
+      // 高確率エリアを自動的にハイライト
+      let highProbabilityPoints = [];
+      
+      function addHighProbabilityHighlight() {
+        if (CONFIG.isMobile) return;
+        
+        // 60%以上の確率を持つポイントを収集
+        const highPoints = allPoints.filter(p => p.probability > 60);
+        if (highPoints.length > 0 && pointsLayer) {
+          // Create a subtle highlight effect for high probability areas
+          pointsLayer.eachLayer(function(layer) {
+            const prob = layer.feature.properties.probability;
+            if (prob > 60) {
+              // Add pulsing animation for very high probability points
+              if (prob > 80) {
+                layer._path.style.animation = 'pulse 2s infinite';
+              }
+            }
+          });
+        }
+      }
+      
+      // CSS animation for pulsing effect
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.9; }
+        }
+      `;
+      document.head.appendChild(style);
 
       // Create panes
       map.createPane('pane-study');
@@ -695,13 +1011,16 @@
           popup.setContent(`
             <div class="wf-pop">
               <div class="wf-prob">
-                Habitat Suitability: <strong>${probText}</strong>
+                Probability of occurrence (<code>Probability</code>): <strong>${probText}</strong>
+              </div>
+              <div class="wf-shap-info" style="font-size: 12px; color: #7f8c8d; text-align: center; padding: 4px; background: #f8f9fa; border-radius: 4px;">
+                SHAP waterfall plot for Random Forest prediction at Point ID ${id}
               </div>
               <div class="wf-img-wrap">
                 <img class="wf-img" src="${url}" alt="SHAP waterfall ID${id}"/>
               </div>
               <div class="wf-link">
-                <a target="_blank" rel="noopener" href="${url}">Open full image →</a>
+                <a target="_blank" rel="noopener" href="${url}">Open full image in new tab →</a>
               </div>
             </div>
           `);
@@ -790,27 +1109,48 @@
       }
 
       for (const tableName of featureTablesPts) {
+        // Create points layer with proper initial styling
+        const pointFeatures = [];
+        
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: CONFIG.gpkgPointsUrl,
           layerName: tableName,
           pane: 'pane-points',
+          style: function(feature) {
+            // Force style for all features
+            return {
+              color: CONFIG.pointStroke,
+              weight: CONFIG.pointStrokeWidth,
+              opacity: CONFIG.pointStrokeOpacity
+            };
+          },
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
             
-            return L.circleMarker(latlng, {
+            const marker = L.circleMarker(latlng, {
               radius: CONFIG.pointBaseRadius,
               weight: CONFIG.pointStrokeWidth,
               opacity: CONFIG.pointStrokeOpacity,
-              color: CONFIG.pointStroke,    // 最初から濃いグレー
+              color: CONFIG.pointStroke,    // 濃いグレー
               fillOpacity: 0.85,
               fillColor: colorForPercent(p),
               className: 'wf-point'
             });
+            
+            // Ensure the initial style is applied
+            marker.options.color = CONFIG.pointStroke;
+            return marker;
           },
           onEachFeature: (feature, lyr) => {
             const p = getProbAsPercent(feature.properties);
             feature.properties.probability = p;
             allPoints.push({ probability: p });
+            
+            // Set initial style explicitly
+            lyr.setStyle({
+              color: CONFIG.pointStroke,
+              weight: CONFIG.pointStrokeWidth
+            });
             
             // Hover effects
             lyr.on('mouseover', function() {
@@ -851,6 +1191,23 @@
       
       gpkgPts.close();
       updateStatistics(allPoints);
+      
+      // Add highlights for high probability areas and ensure correct stroke color
+      setTimeout(() => {
+        addHighProbabilityHighlight();
+        
+        // Force correct stroke color on all points
+        if (pointsLayer) {
+          pointsLayer.eachLayer(function(layer) {
+            if (layer.setStyle) {
+              layer.setStyle({
+                color: CONFIG.pointStroke,
+                weight: CONFIG.pointStrokeWidth
+              });
+            }
+          });
+        }
+      }, 500);
 
       // ===== Legend =====
       const legend = L.control({ position: 'bottomright' });
@@ -878,7 +1235,12 @@
             <span>Habitat Suitability</span>
             <button class="minimize-btn" title="Minimize">−</button>
           </div>
-          <div class="body">${items}</div>
+          <div class="body">
+            ${items}
+            <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #e1e4e8; font-size: 10px; color: #5a6c7d;">
+              <strong>Threshold:</strong> >60% = High suitability
+            </div>
+          </div>
         `;
         
         L.DomEvent.disableClickPropagation(div);
@@ -900,8 +1262,8 @@
       inset.onAdd = function() {
         const div = L.DomUtil.create('div', 'wf-inset leaflet-control');
         div.innerHTML = `
-          <img src="data/beeswarm_RF.png" alt="SHAP Beeswarm Plot"/>
-          <div class="cap">SHAP Feature Importance</div>
+          <img class="is-beeswarm" src="data/beeswarm_RF.png" alt="SHAP Beeswarm Plot"/>
+          <div class="cap">SHAP Global Feature Importance (RF)</div>
         `;
         L.DomEvent.disableClickPropagation(div);
         return div;
