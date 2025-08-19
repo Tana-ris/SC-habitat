@@ -4,8 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sasakia charonda Habitat Suitability - Namegawa Town</title>
-  <meta name="description" content="Interactive visualization of machine learning-based habitat suitability assessment for Sasakia charonda using Random Forest (AUC≈0.720)">
-  <meta name="author" content="Tanaka, Y., Sato, T., & Goto, S.">
+  <meta name="description" content="Interactive visualization of machine learning-based habitat suitability assessment for Sasakia charonda">
 
   <!-- Leaflet -->
   <link
@@ -25,223 +24,208 @@
   <script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.3/dist/leaflet-geopackage.min.js"></script>
 
   <style>
-    html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-    #map { height: 100%; width: 100%; background: #f8f9fa; }
-
-    /* ===== Citation Banner (学術的な参照情報) ===== */
-    .citation-banner {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.95);
-      padding: 8px 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      z-index: 1000;
-      font-size: 12px;
-      text-align: center;
-      max-width: 90%;
+    html, body { 
+      height: 100%; 
+      margin: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
     }
-    .citation-banner strong { font-weight: 600; }
-    .model-info { color: #2c3e50; margin-top: 2px; }
+    #map { 
+      height: 100%; 
+      width: 100%; 
+      background: #f0f4f7; 
+    }
 
     /* ===== Layers control (左上) - シンプル化 ===== */
     .leaflet-control-layers {
       font-size: 14px;
       transition: all .2s ease;
       border-radius: 8px;
+      background: rgba(255, 255, 255, 0.95);
     }
     .leaflet-control-layers-expanded {
-      max-height: 400px; 
-      overflow-y: auto;
-      padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.98);
+      padding: 10px 14px 10px 10px;
+      min-width: 150px;
+    }
+    .leaflet-control-layers-base,
+    .leaflet-control-layers-overlays {
+      margin: 5px 0;
     }
     .leaflet-control-layers label { 
-      line-height: 1.5; 
-      margin: 5px 0; 
-      cursor: pointer;
       display: flex;
       align-items: center;
-    }
-    .leaflet-control-layers input {
-      margin-right: 8px;
+      margin: 4px 0;
       cursor: pointer;
     }
-    .leaflet-control-layers-toggle { 
-      width: 36px; 
-      height: 36px;
-      background-size: 26px 26px;
+    .leaflet-control-layers input[type="radio"],
+    .leaflet-control-layers input[type="checkbox"] {
+      margin: 0 8px 0 0;
     }
 
     /* 最小化ボタン */
     .minimize-btn {
       position: absolute; 
-      top: 4px; 
-      right: 4px;
+      top: 8px; 
+      right: 8px;
       width: 20px; 
       height: 20px;
-      border: 1px solid rgba(0,0,0,.2);
-      border-radius: 4px; 
+      border: 1px solid #d0d0d0;
+      border-radius: 3px; 
       background: #fff; 
       cursor: pointer;
-      font: 14px/18px monospace;
-      padding: 0;
+      font: 14px/18px Arial, sans-serif;
+      color: #666;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all .2s;
+      transition: all .15s;
+      z-index: 1;
     }
     .minimize-btn:hover { 
-      background: #f0f0f0; 
-      transform: scale(1.1);
+      background: #f4f4f4; 
+      border-color: #999;
     }
-    .minimize-btn:active { transform: scale(0.95); }
-
     .is-minimized .leaflet-control-layers-list { display: none !important; }
-    .is-minimized .leaflet-control-layers-separator { display: none !important; }
 
-    /* ===== 統計パネル (Statistics Panel) ===== */
+    /* ===== 統計パネル (デスクトップのみ) ===== */
     .stats-panel.leaflet-control {
-      background: rgba(255, 255, 255, 0.98);
-      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 14px;
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-      font-size: 13px;
-      min-width: 200px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 12px;
+      min-width: 180px;
     }
     .stats-panel h4 {
-      margin: 0 0 10px;
-      font-size: 14px;
+      margin: 0 0 8px;
+      font-size: 13px;
       font-weight: 600;
       color: #2c3e50;
-      border-bottom: 2px solid #3498db;
       padding-bottom: 4px;
+      border-bottom: 1px solid #e1e4e8;
     }
     .stats-item {
       display: flex;
       justify-content: space-between;
-      margin: 6px 0;
-      padding: 4px 0;
+      margin: 4px 0;
     }
     .stats-label {
       color: #5a6c7d;
-      font-weight: 500;
+      font-size: 11px;
     }
     .stats-value {
       font-weight: 600;
       color: #2c3e50;
+      font-size: 11px;
     }
-    .stats-high { color: #27ae60; }
-    .stats-mid { color: #f39c12; }
-    .stats-low { color: #e74c3c; }
 
-    /* ===== フィルターパネル ===== */
+    /* ===== フィルターパネル (デスクトップのみ) ===== */
     .filter-panel.leaflet-control {
-      background: rgba(255, 255, 255, 0.98);
-      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 14px;
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-      min-width: 220px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      min-width: 200px;
     }
     .filter-header {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       color: #2c3e50;
-      border-bottom: 2px solid #9b59b6;
       padding-bottom: 4px;
+      border-bottom: 1px solid #e1e4e8;
     }
     .filter-range {
-      margin: 10px 0;
+      margin: 8px 0;
     }
     .filter-range label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       color: #5a6c7d;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
     .filter-slider {
       width: 100%;
-      margin: 8px 0;
+      margin: 5px 0;
+      cursor: pointer;
     }
     .filter-value {
       text-align: center;
       font-weight: 600;
+      font-size: 11px;
       color: #2c3e50;
-      padding: 4px;
-      background: #ecf0f1;
-      border-radius: 4px;
-      margin-top: 4px;
+      padding: 3px;
+      background: #f6f8fa;
+      border-radius: 3px;
+      margin-top: 3px;
     }
     .filter-reset {
       width: 100%;
-      padding: 6px;
-      margin-top: 8px;
-      background: #3498db;
+      padding: 5px;
+      margin-top: 6px;
+      background: #0366d6;
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 3px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
-      transition: background .2s;
+      transition: background .15s;
     }
-    .filter-reset:hover { background: #2980b9; }
+    .filter-reset:hover { background: #0256c7; }
     .filter-reset:active { transform: translateY(1px); }
 
-    /* ===== Legend (右下) - シンプル化 ===== */
+    /* ===== Legend (右下) ===== */
     .wf-legend.leaflet-control {
-      background: rgba(255, 255, 255, 0.98);
-      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 12px;
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-      font-size: 13px;
-      min-width: 200px;
-      position: relative;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 12px;
+      min-width: 160px;
     }
     .wf-legend .hdr {
       display: flex; 
       align-items: center; 
       justify-content: space-between;
-      margin: 0 0 10px; 
+      margin: 0 0 8px; 
       font-weight: 600;
+      font-size: 13px;
       color: #2c3e50;
-      border-bottom: 2px solid #e74c3c;
       padding-bottom: 4px;
+      border-bottom: 1px solid #e1e4e8;
     }
-    .wf-legend .body { display: block; }
+    .wf-legend .body { 
+      display: block; 
+    }
     .wf-legend .item {
       display: grid; 
-      grid-template-columns: 20px 1fr;
+      grid-template-columns: 18px 1fr;
       align-items: center; 
       gap: 8px; 
-      margin: 5px 0;
+      margin: 4px 0;
     }
     .wf-legend .swatch {
-      width: 20px; 
-      height: 20px;
-      border-radius: 3px; 
-      border: 1px solid rgba(0,0,0,.2);
+      width: 18px; 
+      height: 18px;
+      border-radius: 2px; 
+      border: 1px solid rgba(0,0,0,.15);
     }
     .wf-legend .item span:last-child { 
-      font-weight: 500; 
-      font-size: 12px;
+      font-size: 11px;
+      color: #2c3e50;
     }
     .wf-legend.is-minimized .body { display: none; }
 
     /* ===== Popup ===== */
     .wf-popup .leaflet-popup-content-wrapper { 
-      border-radius: 10px; 
+      border-radius: 8px; 
       overflow: hidden;
-      border: 2px solid #3498db;
     }
     .wf-popup .leaflet-popup-content {
       box-sizing: border-box; 
-      width: clamp(300px, 50vw, 800px);
-      height: clamp(280px, 50vh, 600px); 
-      margin: 10px; 
+      width: clamp(280px, 45vw, 600px);
+      height: clamp(260px, 45vh, 500px); 
+      margin: 8px; 
       overflow: hidden;
     }
     .wf-pop { 
@@ -249,24 +233,16 @@
       height: 100%; 
       display: flex; 
       flex-direction: column; 
-      gap: 10px;
+      gap: 8px;
     }
     .wf-prob { 
-      font-size: 16px; 
+      font-size: 14px; 
       font-weight: 600; 
       text-align: center;
-      padding: 8px; 
-      background: #ecf0f1; 
-      border-radius: 6px;
-      color: #2c3e50;
-    }
-    .wf-shap-info {
-      font-size: 12px;
-      color: #7f8c8d;
-      text-align: center;
-      padding: 4px;
-      background: #f8f9fa;
+      padding: 6px; 
+      background: #f6f8fa; 
       border-radius: 4px;
+      color: #2c3e50;
     }
     .wf-img-wrap { 
       flex: 1 1 auto; 
@@ -274,8 +250,8 @@
       display: flex; 
       align-items: center; 
       justify-content: center;
-      border: 1px solid #dfe6e9; 
-      border-radius: 6px; 
+      border: 1px solid #e1e4e8; 
+      border-radius: 4px; 
       background: #fff;
     }
     .wf-img { 
@@ -285,77 +261,97 @@
       display: block;
     }
     .wf-link { 
-      font-size: 12px; 
+      font-size: 11px; 
       text-align: center;
-      color: #3498db;
     }
     .wf-link a { 
-      color: #3498db;
+      color: #0366d6;
       text-decoration: none;
-      font-weight: 600;
     }
     .wf-link a:hover { text-decoration: underline; }
 
-    /* ===== Inset (左下のBeeswarm図) ===== */
+    /* ===== Inset Beeswarm ===== */
     .wf-inset.leaflet-control {
-      background: rgba(255,255,255,.98); 
-      padding: 8px; 
+      background: rgba(255,255,255,.95); 
+      padding: 6px; 
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.12);
+      box-shadow: 0 2px 8px rgba(0,0,0,.1);
     }
     .wf-inset img { 
       display: block; 
-      max-width: clamp(240px, 30vw, 480px); 
-      max-height: clamp(150px, 30vh, 320px);
+      max-width: 280px; 
+      max-height: 180px;
     }
     .wf-inset .cap { 
-      margin-top: 6px; 
+      margin-top: 4px; 
       text-align: center; 
-      font: 11px/1.3 system-ui, sans-serif;
+      font-size: 10px;
       color: #5a6c7d;
       font-weight: 600;
     }
 
-    /* ===== ポイントのスタイル改善 ===== */
+    /* ===== ポイント ===== */
     .wf-point { 
       cursor: pointer;
-      transition: all .2s ease;
     }
-    .wf-point:hover {
-      filter: brightness(1.2);
+
+    /* ===== Tooltip ===== */
+    .leaflet-tooltip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     /* ===== モバイル対応 ===== */
     @media (max-width: 768px) {
-      .citation-banner {
-        font-size: 10px;
-        padding: 6px 10px;
-      }
-      .leaflet-control-layers {
-        font-size: 12px;
-      }
+      /* モバイルでは統計とフィルターパネルを非表示 */
       .stats-panel, .filter-panel {
-        font-size: 11px;
-        padding: 8px 10px;
-        min-width: 160px;
+        display: none !important;
       }
-      .stats-panel h4, .filter-header {
-        font-size: 12px;
+      
+      /* モバイルではツールチップも非表示 */
+      .leaflet-tooltip {
+        display: none !important;
       }
+      
+      .leaflet-control-layers {
+        font-size: 13px;
+      }
+      .leaflet-control-layers-expanded {
+        padding: 8px 12px 8px 8px;
+      }
+      
       .wf-legend {
         font-size: 11px;
         padding: 8px 10px;
-        bottom: 50px;
-        min-width: 160px;
+        min-width: 140px;
       }
+      .wf-legend .hdr {
+        font-size: 12px;
+      }
+      .wf-legend .item {
+        grid-template-columns: 16px 1fr;
+        gap: 6px;
+      }
+      .wf-legend .swatch {
+        width: 16px;
+        height: 16px;
+      }
+      
       .wf-popup .leaflet-popup-content {
         width: 85vw;
-        height: 45vh;
+        height: 50vh;
       }
+      
       .wf-inset img {
         max-width: 200px;
         max-height: 120px;
       }
+      
       .minimize-btn {
         width: 24px;
         height: 24px;
@@ -364,42 +360,21 @@
     }
 
     @media (max-width: 480px) {
-      .stats-panel, .filter-panel {
-        position: fixed;
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
-        width: auto;
-        max-width: none;
-        z-index: 1001;
+      .wf-legend {
+        bottom: 60px;
       }
-      .filter-panel {
-        bottom: auto;
-        top: 60px;
+      .wf-inset {
+        max-width: 180px;
       }
-    }
-
-    /* ===== 印刷対応 (査読者向け) ===== */
-    @media print {
-      .leaflet-control-container { display: none; }
-      .citation-banner { 
-        position: static; 
-        transform: none;
-        box-shadow: none;
-        border: 1px solid #000;
-        margin-bottom: 10px;
+      .wf-inset img {
+        max-width: 170px;
+        max-height: 100px;
       }
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  
-  <!-- Citation Banner -->
-  <div class="citation-banner">
-    <strong>Sasakia charonda Habitat Suitability Assessment</strong> - Namegawa Town, Saitama
-    <div class="model-info">Random Forest (AUC ≈ 0.720) | SHAP Analysis | Tanaka et al. (2025, under review)</div>
-  </div>
 
   <script>
     (async function () {
@@ -410,36 +385,32 @@
         gpkgStreamUrl: 'data/stream.gpkg',
         waterfallBaseUrl: 'data/waterfall/',
         
-        // Visual parameters
-        pointStroke: '#34495e',      // 濃いグレー（視認性向上）
+        // Visual parameters  
+        pointStroke: '#34495e',      // 濃いグレー
         pointStrokeWidth: 1.5,
-        pointStrokeOpacity: 0.85,
+        pointStrokeOpacity: 0.9,
         pointBaseRadius: 7,
-        pointHoverScale: 1.3,
+        pointHoverRadius: 9,
         
-        // Model thresholds from paper
-        thresholds: {
-          lDepth: 5,    // cm
-          dbh: 40,      // cm  
-          vegCover: 40  // %
-        }
+        // Mobile detection
+        isMobile: window.innerWidth <= 768
       };
 
-      // ===== Color scheme (改善されたグラデーション) =====
+      // ===== ColorBrewer 9段階 (YlOrRd scheme) =====
       const COLOR_SCHEME = {
-        below10: '#e8e9ea',    // Very light gray
-        range10_20: '#fef0d9',  // Light yellow
-        range20_30: '#fdcc8a',  // Light orange
-        range30_40: '#fc8d59',  // Orange
-        range40_50: '#f07c4a',  // Dark orange
-        range50_60: '#e34a33',  // Red-orange
-        range60_70: '#d32020',  // Red
-        range70_80: '#b2182b',  // Dark red
-        above80: '#67001f'      // Very dark red
+        below10: '#ffffcc',     // Very light yellow
+        range10_20: '#ffeda0',  // Light yellow
+        range20_30: '#fed976',  // Yellow
+        range30_40: '#feb24c',  // Light orange
+        range40_50: '#fd8d3c',  // Orange
+        range50_60: '#fc4e2a',  // Dark orange
+        range60_70: '#e31a1c',  // Red-orange
+        range70_80: '#bd0026',  // Red
+        above80: '#800026'      // Dark red
       };
 
       function colorForPercent(p) {
-        if (p == null) return '#9e9e9e';
+        if (p == null) return '#bdbdbd';
         if (p < 10) return COLOR_SCHEME.below10;
         if (p <= 20) return COLOR_SCHEME.range10_20;
         if (p <= 30) return COLOR_SCHEME.range20_30;
@@ -481,7 +452,7 @@
       const baseLayers = {
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
-          attribution: '© OpenStreetMap contributors'
+          attribution: '© OpenStreetMap'
         }),
         'GSI Standard': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
           maxZoom: 18,
@@ -506,7 +477,7 @@
         maxWidth: 100 
       }).addTo(map);
 
-      // ===== Layers control with minimize button =====
+      // ===== Layers control with minimize =====
       const overlayLayers = {};
       const layersControl = L.control.layers(baseLayers, overlayLayers, { 
         collapsed: false, 
@@ -523,48 +494,53 @@
         lcMinBtn.innerHTML = lc.classList.contains('is-minimized') ? '+' : '−';
       });
 
-      // ===== Statistics Panel =====
+      // ===== Statistics Panel (デスクトップのみ) =====
       let allPoints = [];
-      const statsControl = L.control({ position: 'topright' });
-      statsControl.onAdd = function() {
-        const div = L.DomUtil.create('div', 'stats-panel leaflet-control');
-        div.innerHTML = `
-          <h4>Statistics</h4>
-          <div class="stats-item">
-            <span class="stats-label">Total Points:</span>
-            <span class="stats-value" id="totalPoints">0</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">Visible Points:</span>
-            <span class="stats-value" id="visiblePoints">0</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">Mean Probability:</span>
-            <span class="stats-value" id="meanProb">—</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">Max Probability:</span>
-            <span class="stats-value stats-high" id="maxProb">—</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">High Suitability (>60%):</span>
-            <span class="stats-value stats-high" id="highCount">0</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">Medium (30-60%):</span>
-            <span class="stats-value stats-mid" id="midCount">0</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-label">Low (<30%):</span>
-            <span class="stats-value stats-low" id="lowCount">0</span>
-          </div>
-        `;
-        L.DomEvent.disableClickPropagation(div);
-        return div;
-      };
-      statsControl.addTo(map);
+      
+      if (!CONFIG.isMobile) {
+        const statsControl = L.control({ position: 'topright' });
+        statsControl.onAdd = function() {
+          const div = L.DomUtil.create('div', 'stats-panel leaflet-control');
+          div.innerHTML = `
+            <h4>Statistics</h4>
+            <div class="stats-item">
+              <span class="stats-label">Total Points:</span>
+              <span class="stats-value" id="totalPoints">0</span>
+            </div>
+            <div class="stats-item">
+              <span class="stats-label">Visible:</span>
+              <span class="stats-value" id="visiblePoints">0</span>
+            </div>
+            <div class="stats-item">
+              <span class="stats-label">Mean Prob.:</span>
+              <span class="stats-value" id="meanProb">—</span>
+            </div>
+            <div class="stats-item">
+              <span class="stats-label">Max Prob.:</span>
+              <span class="stats-value" id="maxProb">—</span>
+            </div>
+            <div class="stats-item">
+              <span class="stats-label">High (>60%):</span>
+              <span class="stats-value" id="highCount">0</span>
+            </div>
+            <div class="stats-item">
+              <span class="stats-label">Med (30-60%):</span>
+              <span class="stats-value" id="midCount">0</span>
+            </div>
+            <div class="stats-item">
+              <span class="stats-label">Low (<30%):</span>
+              <span class="stats-value" id="lowCount">0</span>
+            </div>
+          `;
+          L.DomEvent.disableClickPropagation(div);
+          return div;
+        };
+        statsControl.addTo(map);
+      }
 
       function updateStatistics(points) {
+        if (CONFIG.isMobile) return;
+        
         const total = points.length;
         const probs = points.map(p => p.probability).filter(p => p != null);
         
@@ -585,60 +561,74 @@
         }
       }
 
-      // ===== Filter Panel =====
+      // ===== Filter Panel (デスクトップのみ) =====
       let pointsLayer = null;
       let currentMinProb = 0;
       let currentMaxProb = 100;
 
-      const filterControl = L.control({ position: 'topright' });
-      filterControl.onAdd = function() {
-        const div = L.DomUtil.create('div', 'filter-panel leaflet-control');
-        div.innerHTML = `
-          <div class="filter-header">Probability Filter</div>
-          <div class="filter-range">
-            <label>Minimum Probability</label>
-            <input type="range" class="filter-slider" id="minProbSlider" 
-                   min="0" max="100" value="0" step="5">
-            <div class="filter-value" id="minProbValue">≥ 0%</div>
-          </div>
-          <div class="filter-range">
-            <label>Maximum Probability</label>
-            <input type="range" class="filter-slider" id="maxProbSlider" 
-                   min="0" max="100" value="100" step="5">
-            <div class="filter-value" id="maxProbValue">≤ 100%</div>
-          </div>
-          <button class="filter-reset" id="resetFilter">Reset Filter</button>
-        `;
-        L.DomEvent.disableClickPropagation(div);
-        return div;
-      };
-      filterControl.addTo(map);
+      if (!CONFIG.isMobile) {
+        const filterControl = L.control({ position: 'topright' });
+        filterControl.onAdd = function() {
+          const div = L.DomUtil.create('div', 'filter-panel leaflet-control');
+          div.innerHTML = `
+            <div class="filter-header">Probability Filter</div>
+            <div class="filter-range">
+              <label>Minimum</label>
+              <input type="range" class="filter-slider" id="minProbSlider" 
+                     min="0" max="100" value="0" step="5">
+              <div class="filter-value" id="minProbValue">≥ 0%</div>
+            </div>
+            <div class="filter-range">
+              <label>Maximum</label>
+              <input type="range" class="filter-slider" id="maxProbSlider" 
+                     min="0" max="100" value="100" step="5">
+              <div class="filter-value" id="maxProbValue">≤ 100%</div>
+            </div>
+            <button class="filter-reset" id="resetFilter">Reset</button>
+          `;
+          L.DomEvent.disableClickPropagation(div);
+          return div;
+        };
+        filterControl.addTo(map);
 
-      // Filter event handlers
-      document.getElementById('minProbSlider').addEventListener('input', function(e) {
-        currentMinProb = Number(e.target.value);
-        document.getElementById('minProbValue').textContent = `≥ ${currentMinProb}%`;
-        applyFilter();
-      });
-
-      document.getElementById('maxProbSlider').addEventListener('input', function(e) {
-        currentMaxProb = Number(e.target.value);
-        document.getElementById('maxProbValue').textContent = `≤ ${currentMaxProb}%`;
-        applyFilter();
-      });
-
-      document.getElementById('resetFilter').addEventListener('click', function() {
-        currentMinProb = 0;
-        currentMaxProb = 100;
-        document.getElementById('minProbSlider').value = 0;
-        document.getElementById('maxProbSlider').value = 100;
-        document.getElementById('minProbValue').textContent = '≥ 0%';
-        document.getElementById('maxProbValue').textContent = '≤ 100%';
-        applyFilter();
-      });
+        // Filter event handlers
+        setTimeout(() => {
+          const minSlider = document.getElementById('minProbSlider');
+          const maxSlider = document.getElementById('maxProbSlider');
+          const resetBtn = document.getElementById('resetFilter');
+          
+          if (minSlider) {
+            minSlider.addEventListener('input', function(e) {
+              currentMinProb = Number(e.target.value);
+              document.getElementById('minProbValue').textContent = `≥ ${currentMinProb}%`;
+              applyFilter();
+            });
+          }
+          
+          if (maxSlider) {
+            maxSlider.addEventListener('input', function(e) {
+              currentMaxProb = Number(e.target.value);
+              document.getElementById('maxProbValue').textContent = `≤ ${currentMaxProb}%`;
+              applyFilter();
+            });
+          }
+          
+          if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+              currentMinProb = 0;
+              currentMaxProb = 100;
+              document.getElementById('minProbSlider').value = 0;
+              document.getElementById('maxProbSlider').value = 100;
+              document.getElementById('minProbValue').textContent = '≥ 0%';
+              document.getElementById('maxProbValue').textContent = '≤ 100%';
+              applyFilter();
+            });
+          }
+        }, 100);
+      }
 
       function applyFilter() {
-        if (!pointsLayer) return;
+        if (!pointsLayer || CONFIG.isMobile) return;
         
         const visiblePoints = [];
         pointsLayer.eachLayer(function(layer) {
@@ -686,11 +676,11 @@
         const probText = p == null ? '—' : p.toFixed(1) + '%';
         
         const popup = L.popup({
-          maxWidth: Math.min(800, Math.floor(window.innerWidth * 0.85)),
+          maxWidth: Math.min(600, Math.floor(window.innerWidth * 0.85)),
           className: 'wf-popup',
           autoPan: true,
           keepInView: true,
-          autoPanPadding: [40, 40]
+          autoPanPadding: [30, 30]
         }).setLatLng(ev.latlng).setContent('Loading...').openOn(map);
         
         if (id == null) {
@@ -707,9 +697,6 @@
               <div class="wf-prob">
                 Habitat Suitability: <strong>${probText}</strong>
               </div>
-              <div class="wf-shap-info">
-                SHAP waterfall plot for Random Forest prediction at Point ID ${id}
-              </div>
               <div class="wf-img-wrap">
                 <img class="wf-img" src="${url}" alt="SHAP waterfall ID${id}"/>
               </div>
@@ -724,7 +711,7 @@
           popup.setContent(`
             <div style="padding: 20px; text-align: center;">
               <p>SHAP visualization not available</p>
-              <p style="font-size: 12px; color: #7f8c8d;">File: ${url}</p>
+              <p style="font-size: 11px; color: #7f8c8d;">File: ${url}</p>
             </div>
           `);
         };
@@ -767,10 +754,10 @@
         CONFIG.gpkgStudyUrl, 'pane-study', 'Study Area',
         { 
           color: '#2c3e50', 
-          weight: 3, 
+          weight: 2.5, 
           fillOpacity: 0, 
           fill: false,
-          dashArray: '10, 5'
+          dashArray: '8, 4'
         }
       );
       
@@ -783,15 +770,15 @@
       await addSimpleVectorGpkg(
         CONFIG.gpkgStreamUrl, 'pane-streams', 'Streams',
         { 
-          color: '#3498db', 
-          weight: 2.5, 
-          opacity: 0.8,
+          color: '#2980b9', 
+          weight: 2, 
+          opacity: 0.7,
           lineCap: 'round',
           lineJoin: 'round'
         }
       );
 
-      // Load Points (probability of occurrence)
+      // Load Points
       const respPts = await fetch(CONFIG.gpkgPointsUrl);
       if (!respPts.ok) throw new Error(`Failed to fetch points GeoPackage`);
       const arrayBufPts = await respPts.arrayBuffer();
@@ -809,14 +796,12 @@
           pane: 'pane-points',
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
-            // サイズを確率に応じて調整
-            const radiusScale = 1 + (p / 100) * 0.4;
             
             return L.circleMarker(latlng, {
-              radius: CONFIG.pointBaseRadius * radiusScale,
+              radius: CONFIG.pointBaseRadius,
               weight: CONFIG.pointStrokeWidth,
               opacity: CONFIG.pointStrokeOpacity,
-              color: CONFIG.pointStroke,
+              color: CONFIG.pointStroke,    // 最初から濃いグレー
               fillOpacity: 0.85,
               fillColor: colorForPercent(p),
               className: 'wf-point'
@@ -824,25 +809,22 @@
           },
           onEachFeature: (feature, lyr) => {
             const p = getProbAsPercent(feature.properties);
-            feature.properties.probability = p; // Store for filtering
+            feature.properties.probability = p;
             allPoints.push({ probability: p });
             
-            // Interactive behavior
-            const baseRadius = CONFIG.pointBaseRadius * (1 + (p / 100) * 0.4);
-            const hoverRadius = baseRadius * CONFIG.pointHoverScale;
-            
-            lyr.on('mouseover', () => {
-              lyr.setStyle({ 
-                radius: hoverRadius, 
-                weight: CONFIG.pointStrokeWidth + 1,
+            // Hover effects
+            lyr.on('mouseover', function() {
+              this.setStyle({ 
+                radius: CONFIG.pointHoverRadius,
+                weight: CONFIG.pointStrokeWidth + 0.5,
                 color: '#2c3e50'
               });
-              lyr.bringToFront();
+              this.bringToFront();
             });
             
-            lyr.on('mouseout', () => {
-              lyr.setStyle({ 
-                radius: baseRadius, 
+            lyr.on('mouseout', function() {
+              this.setStyle({ 
+                radius: CONFIG.pointBaseRadius,
                 weight: CONFIG.pointStrokeWidth,
                 color: CONFIG.pointStroke
               });
@@ -850,12 +832,14 @@
             
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
             
-            // Tooltip
-            lyr.bindTooltip(`Probability: ${p ? p.toFixed(1) + '%' : '—'}`, {
-              permanent: false,
-              direction: 'top',
-              offset: [0, -10]
-            });
+            // Tooltip (デスクトップのみ)
+            if (!CONFIG.isMobile) {
+              lyr.bindTooltip(`Probability: ${p ? p.toFixed(1) + '%' : '—'}`, {
+                permanent: false,
+                direction: 'top',
+                offset: [0, -10]
+              });
+            }
           }
         }).addTo(map);
         
@@ -902,7 +886,7 @@
       };
       legend.addTo(map);
 
-      // Legend minimize button
+      // Legend minimize
       const lg = legend.getContainer();
       const lgMinBtn = lg.querySelector('.minimize-btn');
       lgMinBtn.addEventListener('click', (e) => {
@@ -911,23 +895,23 @@
         lgMinBtn.innerHTML = lg.classList.contains('is-minimized') ? '+' : '−';
       });
 
-      // ===== Inset Beeswarm plot =====
+      // ===== Inset Beeswarm =====
       const inset = L.control({ position: 'bottomleft' });
       inset.onAdd = function() {
         const div = L.DomUtil.create('div', 'wf-inset leaflet-control');
         div.innerHTML = `
           <img src="data/beeswarm_RF.png" alt="SHAP Beeswarm Plot"/>
-          <div class="cap">SHAP Global Feature Importance</div>
+          <div class="cap">SHAP Feature Importance</div>
         `;
         L.DomEvent.disableClickPropagation(div);
         return div;
       };
       inset.addTo(map);
 
-      // ===== Mobile detection and UI adjustment =====
-      if (L.Browser.mobile || window.innerWidth < 768) {
-        CONFIG.pointBaseRadius = 9;
-        CONFIG.pointHoverScale = 1.2;
+      // ===== Mobile adjustments =====
+      if (CONFIG.isMobile) {
+        CONFIG.pointBaseRadius = 8;
+        CONFIG.pointHoverRadius = 10;
         map.options.tap = true;
         map.options.tapTolerance = 40;
       }
