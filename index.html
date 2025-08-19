@@ -1179,18 +1179,13 @@
           div.innerHTML = `
             <h5>Key Findings</h5>
             <ol>
-              <li>
-                <strong>Primary determinants</strong>: Overwintering microclimate (leaf‐litter conditions), host tree maturity (<strong>DBH</strong> of <em>Celtis sinensis</em>), and forest floor vegetation cover emerged as the three main axes of habitat suitability (Global SHAP).
-              </li>
-              <li>
-                <strong>Model performance</strong>: <strong>Random Forest</strong> was the best model (<strong>AUC = 0.720</strong>), with ensemble methods generally outperforming linear/margin-based models, indicating strong <strong>nonlinearities and interactions</strong> in the system.
-              </li>
-              <li>
-                Univariate SHAP
+              <li><strong>Primary determinants</strong>: overwintering microclimate, host tree maturity, and forest floor cover (Global SHAP).</li>
+              <li><strong>Model performance</strong>: <strong>Random Forest</strong> achieved optimal performance (AUC of 0.720); ensemble methods outperformed linear/margin-based models, indicating nonlinear relationships and interaction effects.</li>
+              <li><strong>Univariate SHAP</strong>
                 <ul>
-                  <li><strong>Litter depth ≥ 5 cm</strong> → contribution shifts positive.</li>
-                  <li><strong>Host tree DBH ≥ 40 cm</strong> → contribution shifts positive.</li>
-                  <li><strong>Vegetation cover ≥ 40%</strong> → contribution shifts positive.</li>
+                  <li>Litter depth ≥ 5 cm</li>
+                  <li>Diameter at breast height (DBH) for <em>Celtis sinensis</em> ≥ 40 cm</li>
+                  <li>Vegetation cover ≥ 40%</li>
                 </ul>
               </li>
             </ol>
@@ -1216,5 +1211,6 @@
   </script>
 </body>
 </html>
+
 
 
