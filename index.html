@@ -1,87 +1,5 @@
-// ===== Data Export Button (査読者向け、デスクトップのみ) =====
-      if (!CONFIG.isMobile) {
-        const exportBtn = L.control({ position: 'bottomright' });
-        exportBtn.onAdd = function() {
-          const div = L.DomUtil.create('div', 'export-btn leaflet-control');
-          div.innerHTML = `
-            <button id="exportData" title="Export visible points as CSV">
-              <span>📊</span> Export Data
-            </button>
-          `;
-          L.DomEvent.disableClickPropagation(div);
-          return div;
-        };
-        exportBtn.addTo(map);
-        
-        // Export functionality
-        setTimeout(() => {
-          const btn = document.getElementById('exportData');
-          if (btn) {
-            btn.addEventListener('click', function() {
-              exportVisiblePoints();
-            });
-          }
-        }, 100);
-      }
-      
-      function exportVisiblePoints() {
-        if (!pointsLayer) return;
-        
-        let csv = 'ID,Latitude,Longitude,Probability(%)\n';
-        let count = 0;
-        
-        pointsLayer.eachLayer(function(layer) {
-          const prob = layer.feature.properties.probability;
-          if (prob >= currentMinProb && prob <= currentMaxProb) {
-            const id = layer.feature.properties.ID || layer.feature.properties.id || count;
-            const latlng = layer.getLatLng();
-            csv += `${id},${latlng.lat.toFixed(6)},${latlng.lng.toFixed(6)},${prob.toFixed(2)}\n`;
-            count++;
-          }
-        });
-        
-        // Create download
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sasakia_charonda_habitat_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        
-        // Feedback
-        alert(`Exported ${count} points to CSV`);
-      }
-      
-      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====/antml:parameter>
-<parameter name="old_str">      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====/antml:parameter>
-</invoke>      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====
-      if (!CONFIG.isMobile) {
-        const keyFindings = L.control({ position: 'topleft' });
-        keyFindings.onAdd = function() {
-          const div = L.DomUtil.create('div', 'key-findings leaflet-control');
-          div.innerHTML = `
-            <h5>Key Findings</h5>
-            <ul>
-              <li>High suitability areas concentrate near streams</li>
-              <li>Overwintering microclimate is the primary factor</li>
-              <li>Host tree maturity (DBH ≥40cm) critical</li>
-              <li>Forest floor cover (≥40%) enhances habitat</li>
-            </ul>
-          `;
-          L.DomEvent.disableClickPropagation(div);
-          return div;
-        };
-        // Add after a delay to ensure map is fully loaded
-        setTimeout(() => {
-          keyFindings.addTo(map);
-        }, 1000);
-      }
-      
-      // ===== Legend =====/antml:parameter>
-<parameter name="old_str">      // ===== Legend =====/antml:parameter>
-</invoke><!doctype html>
-<html lang="en">
+<!doctype html>
+<html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -722,40 +640,6 @@
         attributionControl: true
       });
 
-      // ===== Key Areas Highlight (査読者向け) =====
-      // 高確率エリアを自動的にハイライト
-      let highProbabilityPoints = [];
-      
-      function addHighProbabilityHighlight() {
-        if (CONFIG.isMobile) return;
-        
-        // 60%以上の確率を持つポイントを収集
-        const highPoints = allPoints.filter(p => p.probability > 60);
-        if (highPoints.length > 0 && pointsLayer) {
-          // Create a subtle highlight effect for high probability areas
-          pointsLayer.eachLayer(function(layer) {
-            const prob = layer.feature.properties.probability;
-            if (prob > 60) {
-              // Add pulsing animation for very high probability points
-              if (prob > 80) {
-                layer._path.style.animation = 'pulse 2s infinite';
-              }
-            }
-          });
-        }
-      }
-      
-      // CSS animation for pulsing effect
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 0.9; }
-          50% { transform: scale(1.1); opacity: 1; }
-          100% { transform: scale(1); opacity: 0.9; }
-        }
-      `;
-      document.head.appendChild(style);
-
       // Create panes
       map.createPane('pane-study');
       map.createPane('pane-streams');
@@ -812,7 +696,6 @@
 
       // ===== Statistics Panel (デスクトップのみ) =====
       let allPoints = [];
-      
       if (!CONFIG.isMobile) {
         const statsControl = L.control({ position: 'topright' });
         statsControl.onAdd = function() {
@@ -856,17 +739,14 @@
 
       function updateStatistics(points) {
         if (CONFIG.isMobile) return;
-        
         const total = points.length;
         const probs = points.map(p => p.probability).filter(p => p != null);
-        
         if (probs.length > 0) {
           const mean = probs.reduce((a, b) => a + b, 0) / probs.length;
           const max = Math.max(...probs);
           const high = probs.filter(p => p > 60).length;
           const mid = probs.filter(p => p >= 30 && p <= 60).length;
           const low = probs.filter(p => p < 30).length;
-          
           document.getElementById('totalPoints').textContent = total;
           document.getElementById('visiblePoints').textContent = probs.length;
           document.getElementById('meanProb').textContent = mean.toFixed(1) + '%';
@@ -920,7 +800,6 @@
               applyFilter();
             });
           }
-          
           if (maxSlider) {
             maxSlider.addEventListener('input', function(e) {
               currentMaxProb = Number(e.target.value);
@@ -928,7 +807,6 @@
               applyFilter();
             });
           }
-          
           if (resetBtn) {
             resetBtn.addEventListener('click', function() {
               currentMinProb = 0;
@@ -945,12 +823,10 @@
 
       function applyFilter() {
         if (!pointsLayer || CONFIG.isMobile) return;
-        
         const visiblePoints = [];
         pointsLayer.eachLayer(function(layer) {
           const prob = layer.feature.properties.probability || 
                        getProbAsPercent(layer.feature.properties);
-          
           if (prob >= currentMinProb && prob <= currentMaxProb) {
             layer.setStyle({ fillOpacity: 0.85, opacity: 1 });
             visiblePoints.push({ probability: prob });
@@ -958,7 +834,6 @@
             layer.setStyle({ fillOpacity: 0.1, opacity: 0.3 });
           }
         });
-        
         updateStatistics(visiblePoints);
       }
 
@@ -1006,7 +881,6 @@
         
         const url = `${CONFIG.waterfallBaseUrl}waterfall_ID${id}_RF.png`;
         const img = new Image();
-        
         img.onload = () => {
           popup.setContent(`
             <div class="wf-pop">
@@ -1025,7 +899,6 @@
             </div>
           `);
         };
-        
         img.onerror = () => {
           popup.setContent(`
             <div style="padding: 20px; text-align: center;">
@@ -1034,11 +907,10 @@
             </div>
           `);
         };
-        
         img.src = url;
       }
 
-      // ===== Load GeoPackage layers =====
+      // ===== Load GeoPackage layers (Study area & Streams) =====
       async function addSimpleVectorGpkg(url, paneName, layerLabel, styleObj) {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`Failed to fetch ${url}`);
@@ -1049,7 +921,6 @@
           gpkg.close();
           throw new Error(`No feature layers found in ${url}`);
         }
-
         const group = L.featureGroup();
         for (const tableName of tables) {
           const lyr = L.geoPackageFeatureLayer([], {
@@ -1068,7 +939,7 @@
         return group;
       }
 
-      // Load Study area
+      // Study Area
       const studyGroup = await addSimpleVectorGpkg(
         CONFIG.gpkgStudyUrl, 'pane-study', 'Study Area',
         { 
@@ -1079,13 +950,12 @@
           dashArray: '8, 4'
         }
       );
-      
       const studyBounds = studyGroup.getBounds();
       if (studyBounds && studyBounds.isValid()) {
         map.fitBounds(studyBounds, { padding: [30, 30] });
       }
 
-      // Load Streams
+      // Streams
       await addSimpleVectorGpkg(
         CONFIG.gpkgStreamUrl, 'pane-streams', 'Streams',
         { 
@@ -1097,27 +967,22 @@
         }
       );
 
-      // Load Points
+      // ===== Load Points (GeoPackage) =====
       const respPts = await fetch(CONFIG.gpkgPointsUrl);
       if (!respPts.ok) throw new Error(`Failed to fetch points GeoPackage`);
       const arrayBufPts = await respPts.arrayBuffer();
       const gpkgPts = await GPM.open(new Uint8Array(arrayBufPts));
       const featureTablesPts = gpkgPts.getFeatureTables();
-      
       if (!featureTablesPts || featureTablesPts.length === 0) {
         throw new Error('No feature layers found in points GeoPackage');
       }
 
       for (const tableName of featureTablesPts) {
-        // Create points layer with proper initial styling
-        const pointFeatures = [];
-        
         const layer = L.geoPackageFeatureLayer([], {
           geoPackageUrl: CONFIG.gpkgPointsUrl,
           layerName: tableName,
           pane: 'pane-points',
-          style: function(feature) {
-            // Force style for all features
+          style: function() {
             return {
               color: CONFIG.pointStroke,
               weight: CONFIG.pointStrokeWidth,
@@ -1126,18 +991,15 @@
           },
           pointToLayer: (feature, latlng) => {
             const p = getProbAsPercent(feature.properties);
-            
             const marker = L.circleMarker(latlng, {
               radius: CONFIG.pointBaseRadius,
               weight: CONFIG.pointStrokeWidth,
               opacity: CONFIG.pointStrokeOpacity,
-              color: CONFIG.pointStroke,    // 濃いグレー
+              color: CONFIG.pointStroke,
               fillOpacity: 0.85,
               fillColor: colorForPercent(p),
               className: 'wf-point'
             });
-            
-            // Ensure the initial style is applied
             marker.options.color = CONFIG.pointStroke;
             return marker;
           },
@@ -1145,13 +1007,7 @@
             const p = getProbAsPercent(feature.properties);
             feature.properties.probability = p;
             allPoints.push({ probability: p });
-            
-            // Set initial style explicitly
-            lyr.setStyle({
-              color: CONFIG.pointStroke,
-              weight: CONFIG.pointStrokeWidth
-            });
-            
+
             // Hover effects
             lyr.on('mouseover', function() {
               this.setStyle({ 
@@ -1161,7 +1017,6 @@
               });
               this.bringToFront();
             });
-            
             lyr.on('mouseout', function() {
               this.setStyle({ 
                 radius: CONFIG.pointBaseRadius,
@@ -1169,12 +1024,12 @@
                 color: CONFIG.pointStroke
               });
             });
-            
             lyr.on('click', (ev) => handleWaterfallClick(feature, ev));
-            
+
             // Tooltip (デスクトップのみ)
             if (!CONFIG.isMobile) {
-              lyr.bindTooltip(`Probability: ${p ? p.toFixed(1) + '%' : '—'}`, {
+              const txt = (p==null) ? '—' : (p.toFixed(1) + '%');
+              lyr.bindTooltip(`Probability: ${txt}`, {
                 permanent: false,
                 direction: 'top',
                 offset: [0, -10]
@@ -1182,32 +1037,37 @@
             }
           }
         }).addTo(map);
-        
+
         pointsLayer = layer;
         const displayName = prettyName(tableName);
         overlayLayers[displayName] = layer;
         layersControl.addOverlay(layer, displayName);
       }
-      
       gpkgPts.close();
+
+      // 初期統計
       updateStatistics(allPoints);
-      
-      // Add highlights for high probability areas and ensure correct stroke color
-      setTimeout(() => {
-        addHighProbabilityHighlight();
-        
-        // Force correct stroke color on all points
-        if (pointsLayer) {
-          pointsLayer.eachLayer(function(layer) {
-            if (layer.setStyle) {
-              layer.setStyle({
-                color: CONFIG.pointStroke,
-                weight: CONFIG.pointStrokeWidth
-              });
-            }
-          });
+
+      // 高確率（>60%）の軽いハイライト（デスクトップのみ）
+      function addHighProbabilityHighlight() {
+        if (CONFIG.isMobile || !pointsLayer) return;
+        pointsLayer.eachLayer(function(layer) {
+          const prob = layer.feature?.properties?.probability;
+          if (prob > 80 && layer._path) {
+            layer._path.style.animation = 'pulse 2s infinite';
+          }
+        });
+      }
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.9; }
         }
-      }, 500);
+      `;
+      document.head.appendChild(style);
+      setTimeout(addHighProbabilityHighlight, 500);
 
       // ===== Legend =====
       const legend = L.control({ position: 'bottomright' });
@@ -1229,7 +1089,6 @@
             <span>${label}</span>
           </div>`
         ).join('');
-        
         div.innerHTML = `
           <div class="hdr">
             <span>Habitat Suitability</span>
@@ -1242,13 +1101,10 @@
             </div>
           </div>
         `;
-        
         L.DomEvent.disableClickPropagation(div);
         return div;
       };
       legend.addTo(map);
-
-      // Legend minimize
       const lg = legend.getContainer();
       const lgMinBtn = lg.querySelector('.minimize-btn');
       lgMinBtn.addEventListener('click', (e) => {
@@ -1270,7 +1126,72 @@
       };
       inset.addTo(map);
 
-      // ===== Mobile adjustments =====
+      // ===== Data Export Button (査読者向け、デスクトップのみ) =====
+      if (!CONFIG.isMobile) {
+        const exportBtn = L.control({ position: 'bottomright' });
+        exportBtn.onAdd = function() {
+          const div = L.DomUtil.create('div', 'export-btn leaflet-control');
+          div.innerHTML = `
+            <button id="exportData" title="Export visible points as CSV">
+              <span>📊</span> Export Data
+            </button>
+          `;
+          L.DomEvent.disableClickPropagation(div);
+          return div;
+        };
+        exportBtn.addTo(map);
+
+        setTimeout(() => {
+          const btn = document.getElementById('exportData');
+          if (btn) btn.addEventListener('click', exportVisiblePoints);
+        }, 100);
+      }
+      function exportVisiblePoints() {
+        if (!pointsLayer) return;
+        let csv = 'ID,Latitude,Longitude,Probability(%)\n';
+        let count = 0;
+        pointsLayer.eachLayer(function(layer) {
+          const prob = layer.feature?.properties?.probability;
+          if (prob >= currentMinProb && prob <= currentMaxProb) {
+            const id = layer.feature.properties.ID
+                   ?? layer.feature.properties.id
+                   ?? count;
+            const latlng = layer.getLatLng();
+            csv += `${id},${latlng.lat.toFixed(6)},${latlng.lng.toFixed(6)},${prob.toFixed(2)}\n`;
+            count++;
+          }
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sasakia_charonda_habitat_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        alert(`Exported ${count} points to CSV`);
+      }
+
+      // ===== Key Findings Panel (査読者向け、デスクトップのみ) =====
+      if (!CONFIG.isMobile) {
+        const keyFindings = L.control({ position: 'topleft' });
+        keyFindings.onAdd = function() {
+          const div = L.DomUtil.create('div', 'key-findings leaflet-control');
+          div.innerHTML = `
+            <h5>Key Findings</h5>
+            <ul>
+              <li>High suitability areas concentrate near streams</li>
+              <li>Overwintering microclimate is the primary factor</li>
+              <li>Host tree maturity (DBH ≥40cm) critical</li>
+              <li>Forest floor cover (≥40%) enhances habitat</li>
+            </ul>
+          `;
+          L.DomEvent.disableClickPropagation(div);
+          return div;
+        };
+        setTimeout(() => keyFindings.addTo(map), 1000);
+      }
+
+      // ===== Mobile tweaks =====
       if (CONFIG.isMobile) {
         CONFIG.pointBaseRadius = 8;
         CONFIG.pointHoverRadius = 10;
