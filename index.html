@@ -1178,12 +1178,22 @@
           const div = L.DomUtil.create('div', 'key-findings leaflet-control');
           div.innerHTML = `
             <h5>Key Findings</h5>
-            <ul>
-              <li>High suitability areas concentrate near streams</li>
-              <li>Overwintering microclimate is the primary factor</li>
-              <li>Host tree maturity (DBH ≥40cm) critical</li>
-              <li>Forest floor cover (≥40%) enhances habitat</li>
-            </ul>
+            <ol>
+              <li>
+                <strong>Primary determinants</strong>: Overwintering microclimate (leaf‐litter conditions), host tree maturity (<strong>DBH</strong> of <em>Celtis sinensis</em>), and forest floor vegetation cover emerged as the three main axes of habitat suitability (Global SHAP).
+              </li>
+              <li>
+                <strong>Model performance</strong>: <strong>Random Forest</strong> was the best model (<strong>AUC = 0.720</strong>), with ensemble methods generally outperforming linear/margin-based models, indicating strong <strong>nonlinearities and interactions</strong> in the system.
+              </li>
+              <li>
+                Univariate SHAP
+                <ul>
+                  <li><strong>Litter depth ≥ 5 cm</strong> → contribution shifts positive.</li>
+                  <li><strong>Host tree DBH ≥ 40 cm</strong> → contribution shifts positive.</li>
+                  <li><strong>Vegetation cover ≥ 40%</strong> → contribution shifts positive.</li>
+                </ul>
+              </li>
+            </ol>
           `;
           L.DomEvent.disableClickPropagation(div);
           return div;
@@ -1206,4 +1216,5 @@
   </script>
 </body>
 </html>
+
 
