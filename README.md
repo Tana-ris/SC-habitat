@@ -1,13 +1,16 @@
-**Sasaki charonda Habitat Suitability Viewer:** https://tana-ris.github.io/SC-habitat/
-
-<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/7b31f1a7-f2ba-473c-a583-b8c38292ba44" />
 
 # SC-habitat
 Machine-learning and XAI framework for habitat suitability of *Sasakia charonda*, with a lightweight Leaflet web map viewer.
 
+
+**Sasaki charonda Habitat Suitability Viewer:** https://tana-ris.github.io/SC-habitat/
+
+
+<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/7b31f1a7-f2ba-473c-a583-b8c38292ba44" />
+
 ## Paper (under review)
 **What Factors Determine *Sasakia charonda* Habitat?**  
-Yuya Tanaka*, Takafumi Sato**, Shintaro Goto*** (submitted)
+Yuya Tanaka, Takafumi Sato, Shintaro Goto (submitted)
 
 **One-sentence summary:**  
 We integrate ML and SHAP to assess habitat suitability in Namegawa Town, identifying overwintering microclimate, host tree maturity, and forest-floor cover as the primary axes; Random Forest performs best (AUC ≈ 0.720) and practical thresholds emerge around ~5 cm litter depth, ~40 cm DBH, and ~40% ground vegetation cover.
