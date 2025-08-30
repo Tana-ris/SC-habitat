@@ -7,7 +7,7 @@ Machine-learning and XAI framework for habitat suitability of *Sasakia charonda*
 <a href="https://tana-ris.github.io/SC-habitat/" rel="noopener noreferrer">
   <img width="1919" height="910" alt="image"
        src="https://github.com/user-attachments/assets/2550e0b4-3dce-4d3c-89ab-4a94c2eb3d74" />
-" />
+
 </a>
 
 ## Paper (under review)
