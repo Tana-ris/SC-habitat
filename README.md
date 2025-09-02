@@ -2,7 +2,7 @@
 # SC-habitat
 Machine-learning and XAI framework for habitat suitability of *Sasakia charonda*, with a lightweight Leaflet web map viewer.
 
-**Sasaki charonda Habitat Suitability Viewer:** https://tana-ris.github.io/SC-habitat/
+**Sasaki charonda Habitat Suitability Viewer👉** https://tana-ris.github.io/SC-habitat/
 
 <a href="https://tana-ris.github.io/SC-habitat/" rel="noopener noreferrer">
   <img width="1919" height="910" alt="image"
