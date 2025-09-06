@@ -11,7 +11,7 @@ Machine-learning and XAI framework for habitat suitability of *Sasakia charonda*
 </a>
 
 ## Paper (under review)
-**Interpretable Habitat Suitability Assessment Based on Habitat Evaluation Procedure: A Case Study of Sasakia charonda in Namegawa Town**  
+**Habitat Suitability Assessment Based on Habitat Evaluation Procedure Using Explainable AI: A Case Study of Sasakia charonda in Namegawa Town**  
 Yuya Tanaka, Takafumi Sato, Shintaro Goto (submitted)
 
 **One-sentence summary:**  
@@ -43,7 +43,7 @@ SC-habitat/
 
 ## Citation
 
-Tanaka, Y., Sato, T., & Goto, S. (2025). **Interpretable Habitat Suitability Assessment Based on Habitat Evaluation Procedure: A Case Study of Sasakia charonda in Namegawa Town**   (under review).
+Tanaka, Y., Sato, T., & Goto, S. (2025). **Habitat Suitability Assessment Based on Habitat Evaluation Procedure Using Explainable AI: A Case Study of Sasakia charonda in Namegawa Town**   (under review).
 
 ---
 
