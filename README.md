@@ -12,7 +12,7 @@ Machine-learning and XAI framework for habitat suitability of *Sasakia charonda*
 
 ## Paper (under review)
 **Habitat Suitability Assessment Based on Habitat Evaluation Procedure Using Explainable AI: A Case Study of Sasakia charonda in Namegawa Town**  
-Yuya Tanaka, Takafumi Sato, Shintaro Goto (submitted)
+author_1, author_2, author_3 (submitted)
 
 **One-sentence summary:**  
 We integrate ML and SHAP to assess habitat suitability in Namegawa Town, identifying overwintering microclimate, host tree maturity, and forest-floor cover as the primary axes; Random Forest performs best (AUC ≈ 0.720) and practical thresholds emerge around ~5 cm litter depth, ~40 cm DBH, and ~40% ground vegetation cover.
@@ -43,7 +43,7 @@ SC-habitat/
 
 ## Citation
 
-Tanaka, Y., Sato, T., & Goto, S. (2025). **Habitat Suitability Assessment Based on Habitat Evaluation Procedure Using Explainable AI: A Case Study of Sasakia charonda in Namegawa Town**   (under review).
+author_1, author_2, and author_3. (2025). **Habitat Suitability Assessment Based on Habitat Evaluation Procedure Using Explainable AI: A Case Study of Sasakia charonda in Namegawa Town**   (under review).
 
 ---
 
